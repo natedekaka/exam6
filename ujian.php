@@ -622,6 +622,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
     </div>
 
     <div class="container pb-5">
+        <!-- Exam Code Form (if required) -->
+        <?php if (!empty($ujian['kode_ujian'])): ?>
+        <div id="examCodeForm" class="identitas-card" style="display: none;">
+            <h5 class="fw-bold mb-4">
+                <i class="bi bi-shield-lock me-2 text-primary"></i>Kode Ujian
+            </h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Masukkan Kode Ujian <span class="text-danger">*</span></label>
+                    <input type="text" id="kodeUjianInput" class="form-control form-control-lg" placeholder="Masukkan kode rahasia" autocomplete="off">
+                    <button type="button" class="btn btn-primary mt-3" onclick="verifyExamCode()">
+                        <i class="bi bi-check2-circle me-2"></i>Masuk Ujian
+                    </button>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+        
+        <!-- Main Exam Content -->
+        <div id="examContent" style="<?= !empty($ujian['kode_ujian']) ? 'display:none;' : '' ?>">
+        
         <?php if ($message): ?>
             <div class="alert alert-<?= $message_type ?> alert-dismissible fade show">
                 <?= $message ?>
@@ -652,6 +673,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             </div>
 
             <!-- Daftar Soal -->
+            <div id="soalSection">
             <?php $no = 1; foreach ($soal_list as $soal): ?>
             <div class="soal-card">
                 <div class="d-flex align-items-start mb-3">
@@ -704,14 +726,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                 </div>
             </div>
             <?php $no++; endforeach; ?>
+            </div>
 
             <!-- Submit -->
-            <div class="text-center mb-5">
+            <div class="text-center mb-5" id="submitSection">
                 <button type="button" class="btn btn-primary btn-submit text-white" onclick="submitFinal()">
                     <i class="bi bi-send-fill me-2"></i>Kirim Jawaban
                 </button>
             </div>
         </form>
+        </div><!-- End examContent -->
 
         <!-- Progress Indicator -->
         <div class="progress-indicator" id="progressIndicator">
@@ -734,8 +758,291 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
     <script>
         const API_URL = 'api/submit_jawaban.php';
         const ID_UJIAN = <?= $id_ujian ?>;
+        const HAS_EXAM_CODE = <?= !empty($ujian['kode_ujian']) ? 'true' : 'false' ?>;
         let answers = {};
         let identitySaved = false;
+        let csrfToken = '';
+        
+        function init() {
+            // Run after DOM is loaded
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', init);
+                return;
+            }
+            
+            // Show/hide sections based on exam code requirement
+            if (HAS_EXAM_CODE) {
+                const examCodeForm = document.getElementById('examCodeForm');
+                const examContent = document.getElementById('examContent');
+                if (examCodeForm && examContent) {
+                    examContent.style.display = 'none';
+                    examCodeForm.style.display = 'block';
+                }
+            } else {
+                startExam();
+            }
+        }
+        
+        async function startExam() {
+            try {
+                const tokenRes = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({action: 'generate_token'})
+                });
+                const tokenData = await tokenRes.json();
+                
+                if (tokenData.success && tokenData.csrf_token) {
+                    csrfToken = tokenData.csrf_token;
+                }
+                <?php if (!empty($ujian['enable_browser_lock']) && $ujian['enable_browser_lock'] === 'ya'): ?>
+                initBrowserLock();
+                <?php endif; ?>
+                <?php if (!empty($ujian['enable_device_check']) && $ujian['enable_device_check'] === 'ya'): ?>
+                checkDeviceFingerprint();
+                <?php endif; ?>
+                const savedNis = localStorage.getItem('exam_nis');
+                if (savedNis) {
+                    checkCompletion(savedNis);
+                }
+            } catch (e) {
+                console.error('Failed to initialize:', e);
+            }
+        }
+        
+        async function verifyExamCode() {
+            const kode = document.getElementById('kodeUjianInput').value.trim();
+            if (!kode) {
+                alert('Masukkan kode ujian!');
+                return;
+            }
+            
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        action: 'check_exam_code',
+                        id_ujian: ID_UJIAN,
+                        kode_ujian: kode
+                    })
+                });
+                const data = await res.json();
+                console.log('Verify response:', data);
+                
+                if (data.valid) {
+                    document.getElementById('examCodeForm').style.display = 'none';
+                    document.getElementById('examContent').style.display = 'block';
+                    console.log('Calling startExam...');
+                    startExam();
+                } else {
+                    alert(data.message || 'Kode ujian salah!');
+                }
+            } catch (e) {
+                alert('Gagal memverifikasi kode. Silakan coba lagi.');
+            }
+        }
+        
+        function generateDeviceFingerprint() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.textBaseline = 'top';
+            ctx.font = '14px Arial';
+            ctx.fillText('Fingerprint', 2, 2);
+            const canvasHash = canvas.toDataURL();
+            
+            const fingerprint = [
+                navigator.userAgent,
+                navigator.language,
+                screen.width + 'x' + screen.height,
+                new Date().getTimezoneOffset(),
+                canvasHash.substring(0, 20)
+            ].join('|');
+            
+            let hash = 0;
+            for (let i = 0; i < fingerprint.length; i++) {
+                const char = fingerprint.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return 'fp_' + Math.abs(hash).toString(16);
+        }
+        
+        function checkDeviceFingerprint() {
+            const fp = generateDeviceFingerprint();
+            const savedFp = localStorage.getItem('exam_fp');
+            
+            if (savedFp && savedFp !== fp) {
+                alert('Peringatan: Anda terdeteksi更换设备. Ini mungkin tercatat.');
+            }
+            localStorage.setItem('exam_fp', fp);
+        }
+        
+        function initBrowserLock() {
+            let violationCount = 0;
+            const maxViolations = <?= (int)($ujian['max_violations'] ?? 3) ?>;
+            
+            document.addEventListener('visibilitychange', function() {
+                if (document.hidden) {
+                    violationCount++;
+                    logViolation('tab_switch', 'Siswa meninggalkan tab ujian');
+                    
+                    if (violationCount >= maxViolations) {
+                        alert('Anda terlalu banyak切换标签. Jawaban akan disubmit otomatis!');
+                        submitFinal();
+                    } else {
+                        const remaining = maxViolations - violationCount;
+                        alert(`Peringatan: Anda meninggalkan tab ujian!\nPelanggaran: ${violationCount}/${maxViolations}\nSisa: ${remaining}x sebelum submit otomatis`);
+                    }
+                }
+            });
+            
+            document.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                logViolation('right_click', 'Siswa mencoba klik kanan');
+                return false;
+            });
+            
+            document.addEventListener('copy', function(e) {
+                e.preventDefault();
+                logViolation('copy_paste', 'Siswa mencoba menyalin teks');
+                return false;
+            });
+            
+            document.addEventListener('cut', function(e) {
+                e.preventDefault();
+                logViolation('cut', 'Siswa mencoba memotong teks');
+                return false;
+            });
+        }
+        
+        async function logViolation(jenis, detail) {
+            try {
+                await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        action: 'log_violation',
+                        id_ujian: ID_UJIAN,
+                        nis: document.querySelector('input[name="nis"]')?.value || localStorage.getItem('exam_nis') || '',
+                        jenis: jenis,
+                        detail: detail,
+                        device_fingerprint: localStorage.getItem('exam_fp') || '',
+                        ip_address: '',
+                        csrf_token: csrfToken,
+                        expected_token: csrfToken
+                    })
+                });
+            } catch (e) {
+                console.error('Failed to log violation:', e);
+            }
+        }
+        
+        async function verifyExamCodeAndShowForm() {
+            const kodeInput = document.getElementById('kodeUjianInput');
+            if (!kodeInput) return;
+            
+            const kode = kodeInput.value.trim();
+            if (!kode) {
+                alert('Masukkan kode ujian!');
+                return;
+            }
+            
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        action: 'check_exam_code',
+                        id_ujian: ID_UJIAN,
+                        kode_ujian: kode,
+                        csrf_token: csrfToken,
+                        expected_token: csrfToken
+                    })
+                });
+                const data = await res.json();
+                
+                if (data.valid) {
+                    document.getElementById('examCodeForm').style.display = 'none';
+                    document.getElementById('examContent').style.display = 'block';
+                    startExam();
+                } else {
+                    alert(data.message || 'Kode ujian salah!');
+                }
+            } catch (e) {
+                alert('Gagal memverifikasi kode. Silakan coba lagi.');
+            }
+        }
+        
+        async function getNewToken() {
+            const tokenRes = await fetch(API_URL, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({action: 'generate_token'})
+            });
+            const tokenData = await tokenRes.json();
+            return tokenData.csrf_token || '';
+        }
+        
+        async function checkCompletion(nis) {
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        action: 'check_completion',
+                        id_ujian: ID_UJIAN,
+                        nis: nis,
+                        csrf_token: csrfToken,
+                        expected_token: csrfToken
+                    })
+                });
+                const data = await res.json();
+                
+                if (data.completed) {
+                    showAlreadyCompleted(data.result);
+                } else if (data.has_saved && data.saved_data) {
+                    loadSavedAnswers(data.saved_data);
+                }
+            } catch (e) {
+                console.error('Check completion failed:', e);
+            }
+        }
+        
+        function showAlreadyCompleted(result) {
+            document.getElementById('formUjian').innerHTML = `
+                <div class="alert alert-warning text-center py-5">
+                    <i class="bi bi-exclamation-triangle-fill" style="font-size: 3rem;"></i>
+                    <h3 class="mt-3">Anda sudah mengerjakan ujian ini</h3>
+                    <p class="mb-2">Skor Anda: <strong>${result.skor}</strong></p>
+                    <p class="text-muted">Tanggal: ${new Date(result.tanggal).toLocaleString('id-ID')}</p>
+                    <a href="index.php" class="btn btn-primary mt-3">Kembali ke Halaman Utama</a>
+                </div>
+            `;
+            document.getElementById('progressIndicator').style.display = 'none';
+        }
+        
+        function loadSavedAnswers(savedData) {
+            if (savedData.nama) {
+                document.querySelector('input[name="nama"]').value = savedData.nama;
+            }
+            if (savedData.kelas) {
+                document.querySelector('input[name="kelas"]').value = savedData.kelas;
+            }
+            if (savedData.answers) {
+                answers = savedData.answers;
+                Object.entries(answers).forEach(([soalId, jawaban]) => {
+                    const radio = document.querySelector(`input[name="jawaban_${soalId}"][value="${jawaban}"]`);
+                    if (radio) {
+                        radio.checked = true;
+                    }
+                });
+                updateProgress();
+                document.getElementById('autoSaveStatus').innerHTML = 
+                    '<i class="bi bi-cloud-check-fill text-info"></i> Jawaban dimuat dari penyimpanan';
+            }
+            identitySaved = true;
+        }
         
         function saveIdentity() {
             const nis = document.querySelector('input[name="nis"]').value.trim();
@@ -746,7 +1053,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                 return false;
             }
             
-            if (!identitySaved) {
+            if (!identitySaved && csrfToken) {
                 fetch(API_URL, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -756,11 +1063,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                         nis: nis,
                         nama: nama,
                         kelas: kelas,
-                        answers: {}
+                        answers: {},
+                        csrf_token: csrfToken,
+                        expected_token: csrfToken
                     })
                 }).then(r => r.json()).then(data => {
                     if (data.success) {
                         identitySaved = true;
+                        localStorage.setItem('exam_nis', nis);
+                        checkCompletion(nis);
                     }
                 }).catch(console.error);
             }
@@ -770,6 +1081,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
         function autoSaveAnswer(soalId, answer) {
             const nis = document.querySelector('input[name="nis"]').value.trim();
             if (!nis || !identitySaved) return;
+            if (!csrfToken) return; // Skip if no CSRF token yet
             
             answers[soalId] = answer;
             
@@ -782,7 +1094,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                         action: 'auto_save',
                         id_ujian: ID_UJIAN,
                         nis: nis,
-                        answers: answers
+                        answers: answers,
+                        csrf_token: csrfToken,
+                        expected_token: csrfToken
                     })
                 }).then(r => r.json()).then(data => {
                     if (data.success) {
@@ -791,12 +1105,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                         setTimeout(() => {
                             document.getElementById('autoSaveStatus').innerHTML = '';
                         }, 2000);
+                    } else if (data.message.includes('sudah menyelesaikan')) {
+                        alert(data.message);
+                        location.reload();
                     }
                 }).catch(console.error);
             }, 2000);
         }
         
         function submitFinal() {
+            const kodeValidInput = document.getElementById('kodeValid');
+            if (kodeValidInput && kodeValidInput.value !== '1') {
+                // Auto verify sebelum submit
+                verifyExamCodeForSubmit();
+                return;
+            }
+            
+            doSubmitFinal();
+        }
+        
+        async function verifyExamCodeForSubmit() {
+            const kodeInput = document.getElementById('kodeUjianInput');
+            if (!kodeInput) {
+                doSubmitFinal();
+                return;
+            }
+            
+            const kode = kodeInput.value.trim();
+            if (!kode) {
+                alert('Masukkan kode ujian!');
+                return;
+            }
+            
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        action: 'check_exam_code',
+                        id_ujian: ID_UJIAN,
+                        kode_ujian: kode,
+                        csrf_token: csrfToken,
+                        expected_token: csrfToken
+                    })
+                });
+                const data = await res.json();
+                
+                if (data.valid) {
+                    document.getElementById('kodeValid').value = '1';
+                    doSubmitFinal();
+                } else {
+                    alert(data.message || 'Kode ujian salah!');
+                }
+            } catch (e) {
+                console.error('Failed to verify code:', e);
+                alert('Gagal memverifikasi kode. Silakan coba lagi.');
+            }
+        }
+        
+        function doSubmitFinal() {
             const nis = document.querySelector('input[name="nis"]').value.trim();
             const nama = document.querySelector('input[name="nama"]').value.trim();
             const kelas = document.querySelector('input[name="kelas"]').value.trim();
@@ -825,6 +1192,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Mengirim...';
             btn.disabled = true;
             
+            console.log('Submitting with csrfToken:', csrfToken);
+            console.log('Answers:', answers);
+            
             fetch(API_URL, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -834,12 +1204,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                     nis: nis,
                     nama: nama,
                     kelas: kelas,
-                    answers: answers
+                    answers: answers,
+                    csrf_token: csrfToken,
+                    expected_token: csrfToken
                 })
             })
-            .then(r => r.json())
+            .then(r => {
+                console.log('Submit response status:', r.status);
+                return r.json();
+            })
             .then(data => {
                 if (data.success) {
+                    localStorage.removeItem('exam_nis');
                     showSuccessPage(data.skor, nis, nama, kelas);
                 } else {
                     alert('Error: ' + data.message);
@@ -851,9 +1227,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                 console.error(err);
                 alert('Gagal mengirim jawaban. Silakan coba lagi.');
                 btn.innerHTML = originalText;
-               ;
+                btn.disabled = false;
             });
-        btn.disabled = false }
+        }
         
         function showSuccessPage(skor, nis, nama, kelas) {
             localStorage.setItem('exam_nis', nis);
@@ -1051,6 +1427,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
         updateTimer();
         setInterval(updateTimer, 1000);
         <?php endif; ?>
+        
+        init();
     </script>
 </body>
 </html>

@@ -1,10 +1,13 @@
 <?php
 // api/submit_jawaban.php - AJAX API untuk submit jawaban ujian
 
+error_reporting(0);
+ini_set('display_errors', 0);
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, X-Requested-With');
+header('Access-Control-Allow-Headers: Content-Type, X-Requested-With, X-CSRF-Token');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -13,6 +16,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once '../config/database.php';
 require_once '../config/init_sekolah.php';
+
+function validateUniqueAttempt($conn, $id_ujian, $nis) {
+    $stmt = $conn->prepare("SELECT id FROM hasil_ujian WHERE id_ujian = ? AND nis = ? LIMIT 1");
+    $stmt->bind_param("is", $id_ujian, $nis);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $exists = $result->num_rows > 0;
+    $stmt->close();
+    return !$exists;
+}
+
+function validateTemporaryUnique($conn, $id_ujian, $nis) {
+    $stmt = $conn->prepare("SELECT id FROM jawaban_sementara WHERE id_ujian = ? AND nis = ? LIMIT 1");
+    $stmt->bind_param("is", $id_ujian, $nis);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $exists = $result->num_rows > 0;
+    $stmt->close();
+    return !$exists;
+}
+
+function verifyCSRF($token, $expected) {
+    if (empty($token) || empty($expected)) return false;
+    return hash_equals($expected, $token);
+}
 
 $response = ['success' => false, 'message' => ''];
 
@@ -28,8 +56,36 @@ try {
     }
 
     $action = $input['action'];
+    
+    // CSRF validation - skip for generate_token and check_exam_code
+    $exemptActions = ['generate_token', 'check_exam_code', 'check_ip'];
+    if (!in_array($action, $exemptActions)) {
+        $csrfToken = $input['csrf_token'] ?? '';
+        $expectedToken = $input['expected_token'] ?? '';
+        
+        // Log for debugging
+        error_log("CSRF Check - Action: $action, Token: " . strlen($csrfToken) . " chars, Expected: " . strlen($expectedToken) . " chars");
+        
+        if (empty($csrfToken) || empty($expectedToken)) {
+            throw new Exception('CSRF token missing');
+        }
+        
+        if (!hash_equals($expectedToken, $csrfToken)) {
+            throw new Exception('Invalid CSRF token');
+        }
+    }
 
     switch ($action) {
+        case 'generate_token':
+            $newToken = bin2hex(random_bytes(32));
+            $response['success'] = true;
+            $response['csrf_token'] = $newToken;
+            break;
+            
+        case 'check_completion':
+            $response = handleCheckCompletion($conn, $input);
+            break;
+            
         case 'auto_save':
             $response = handleAutoSave($conn, $input);
             break;
@@ -46,6 +102,22 @@ try {
             $response = handleGetSaved($conn, $input);
             break;
             
+        case 'log_violation':
+            $response = handleLogViolation($conn, $input);
+            break;
+            
+        case 'get_violations':
+            $response = handleGetViolations($conn, $input);
+            break;
+            
+        case 'check_exam_code':
+            $response = handleCheckExamCode($conn, $input);
+            break;
+            
+        case 'check_ip':
+            $response = handleCheckIP($conn, $input);
+            break;
+            
         default:
             throw new Exception('Unknown action');
     }
@@ -58,6 +130,60 @@ try {
 echo json_encode($response);
 $conn->close();
 
+function handleCheckCompletion($conn, $input) {
+    $response = ['success' => true, 'completed' => false, 'has_saved' => false, 'saved_data' => null];
+    
+    if (!isset($input['id_ujian']) || !isset($input['nis'])) {
+        throw new Exception('Missing required fields');
+    }
+    
+    $id_ujian = (int)$input['id_ujian'];
+    $nis = trim($input['nis']);
+    
+    if (empty($nis)) {
+        throw new Exception('NIS is required');
+    }
+    
+    $stmt = $conn->prepare("SELECT id, total_skor, created_at FROM hasil_ujian WHERE id_ujian = ? AND nis = ? LIMIT 1");
+    $stmt->bind_param("is", $id_ujian, $nis);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result->num_rows > 0) {
+        $row = $result->fetch_assoc();
+        $response['completed'] = true;
+        $response['message'] = 'Anda sudah mengerjakan ujian ini';
+        $response['result'] = [
+            'skor' => $row['total_skor'],
+            'tanggal' => $row['created_at']
+        ];
+    }
+    $stmt->close();
+    
+    if (!$response['completed']) {
+        $tableExists = $conn->query("SHOW TABLES LIKE 'jawaban_sementara'");
+        if ($tableExists && $tableExists->num_rows > 0) {
+            $stmt = $conn->prepare("SELECT answers, nama, kelas, updated_at FROM jawaban_sementara WHERE id_ujian = ? AND nis = ?");
+            $stmt->bind_param("is", $id_ujian, $nis);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            if ($row = $result->fetch_assoc()) {
+                $response['has_saved'] = true;
+                $response['saved_data'] = [
+                    'answers' => json_decode($row['answers'], true) ?: [],
+                    'nama' => $row['nama'],
+                    'kelas' => $row['kelas'],
+                    'last_update' => $row['updated_at']
+                ];
+            }
+            $stmt->close();
+        }
+    }
+    
+    return $response;
+}
+
 function handleAutoSave($conn, $input) {
     $response = ['success' => false, 'message' => ''];
     
@@ -68,9 +194,15 @@ function handleAutoSave($conn, $input) {
     $id_ujian = (int)$input['id_ujian'];
     $nis = trim($input['nis']);
     $answers = $input['answers'];
+    $nama = isset($input['nama']) ? trim($input['nama']) : null;
+    $kelas = isset($input['kelas']) ? trim($input['kelas']) : null;
     
     if (empty($nis)) {
         throw new Exception('NIS is required');
+    }
+    
+    if (!validateUniqueAttempt($conn, $id_ujian, $nis)) {
+        throw new Exception('Anda sudah menyelesaikan ujian ini. Tidak dapat mengubah jawaban.');
     }
     
     $tableExists = $conn->query("SHOW TABLES LIKE 'jawaban_sementara'");
@@ -94,18 +226,23 @@ function handleAutoSave($conn, $input) {
     }
     
     $answersJson = json_encode($answers);
+    $namaValue = $nama ?? '';
+    $kelasValue = $kelas ?? '';
     
     $stmt = $conn->prepare("
-        INSERT INTO jawaban_sementara (id_ujian, nis, answers)
-        VALUES (?, ?, ?)
-        ON DUPLICATE KEY UPDATE answers = ?, updated_at = NOW()
+        INSERT INTO jawaban_sementara (id_ujian, nis, nama, kelas, answers)
+        VALUES (?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE 
+            nama = COALESCE(NULLIF(?, ''), nama),
+            kelas = COALESCE(NULLIF(?, ''), kelas),
+            answers = ?, updated_at = NOW()
     ");
-    $stmt->bind_param("isss", $id_ujian, $nis, $answersJson, $answersJson);
+    $stmt->bind_param("issssss", $id_ujian, $nis, $namaValue, $kelasValue, $namaValue, $kelasValue, $answersJson);
     
     if ($stmt->execute()) {
         $response['success'] = true;
         $response['message'] = 'Jawaban tersimpan';
-        $response['saved_count'] = count($answers);
+        $response['saved_count'] = is_array($answers) ? count($answers) : 0;
     } else {
         throw new Exception('Failed to save: ' . $stmt->error);
     }
@@ -130,6 +267,10 @@ function handleSubmitFinal($conn, $input) {
     
     if (empty($nis) || empty($nama) || empty($kelas)) {
         throw new Exception('Identitas tidak lengkap');
+    }
+    
+    if (!validateUniqueAttempt($conn, $id_ujian, $nis)) {
+        throw new Exception('Anda sudah menyelesaikan ujian ini. Tidak dapat mengubah jawaban.');
     }
     
     $stmt = $conn->prepare("SELECT * FROM soal WHERE id_ujian = ?");
@@ -250,6 +391,131 @@ function handleGetSaved($conn, $input) {
         $response['answers'] = json_decode($row['answers'], true) ?: [];
         $response['nama'] = $row['nama'];
         $response['kelas'] = $row['kelas'];
+    }
+    $stmt->close();
+    
+    return $response;
+}
+
+function handleLogViolation($conn, $input) {
+    $response = ['success' => true, 'message' => ''];
+    
+    if (!isset($input['id_ujian']) || !isset($input['nis']) || !isset($input['jenis'])) {
+        throw new Exception('Missing required fields');
+    }
+    
+    $id_ujian = (int)$input['id_ujian'];
+    $nis = trim($input['nis']);
+    $jenis = trim($input['jenis']);
+    $detail = isset($input['detail']) ? trim($input['detail']) : '';
+    $device = isset($input['device_fingerprint']) ? trim($input['device_fingerprint']) : '';
+    $ip = isset($input['ip_address']) ? trim($input['ip_address']) : '';
+    
+    $conn->query("
+        CREATE TABLE IF NOT EXISTS `exam_violations` (
+            `id` INT NOT NULL AUTO_INCREMENT,
+            `id_ujian` INT NOT NULL,
+            `nis` VARCHAR(50) NOT NULL,
+            `jenis_violation` VARCHAR(50) NOT NULL,
+            `detail` TEXT,
+            `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            INDEX `idx_ujian_nis` (`id_ujian`, `nis`),
+            INDEX `idx_created` (`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+    ");
+    
+    $stmt = $conn->prepare("INSERT INTO exam_violations (id_ujian, nis, jenis_violation, detail) VALUES (?, ?, ?, ?)");
+    $stmt->bind_param("isss", $id_ujian, $nis, $jenis, $detail);
+    $stmt->execute();
+    $stmt->close();
+    
+    $result = $conn->query("SELECT COUNT(*) as total FROM exam_violations WHERE id_ujian = $id_ujian AND nis = '$nis'");
+    $row = $result->fetch_assoc();
+    $response['violation_count'] = (int)$row['total'];
+    
+    return $response;
+}
+
+function handleGetViolations($conn, $input) {
+    $response = ['success' => true, 'violations' => [], 'total' => 0];
+    
+    if (!isset($input['id_ujian']) || !isset($input['nis'])) {
+        throw new Exception('Missing required fields');
+    }
+    
+    $id_ujian = (int)$input['id_ujian'];
+    $nis = $conn->real_escape_string($input['nis']);
+    
+    $result = $conn->query("SELECT * FROM exam_violations WHERE id_ujian = $id_ujian AND nis = '$nis' ORDER BY created_at DESC LIMIT 50");
+    while ($row = $result->fetch_assoc()) {
+        $response['violations'][] = $row;
+    }
+    $response['total'] = count($response['violations']);
+    
+    return $response;
+}
+
+function handleCheckExamCode($conn, $input) {
+    $response = ['success' => true, 'valid' => false, 'message' => ''];
+    
+    if (!isset($input['id_ujian']) || !isset($input['kode_ujian'])) {
+        throw new Exception('Missing required fields');
+    }
+    
+    $id_ujian = (int)$input['id_ujian'];
+    $kode = trim($input['kode_ujian']);
+    
+    try {
+        $stmt = $conn->prepare("SELECT kode_ujian FROM ujian WHERE id = ?");
+        $stmt->bind_param("i", $id_ujian);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($row = $result->fetch_assoc()) {
+            $kodeDb = $row['kode_ujian'] ?? '';
+            
+            if (empty($kodeDb)) {
+                $response['valid'] = true;
+            } elseif (strcasecmp($kodeDb, $kode) === 0) {
+                $response['valid'] = true;
+            } else {
+                $response['message'] = 'Kode ujian salah';
+            }
+        } else {
+            $response['message'] = 'Ujian tidak ditemukan';
+        }
+        $stmt->close();
+    } catch (Exception $e) {
+        $response['message'] = 'Error: ' . $e->getMessage();
+    }
+    
+    return $response;
+}
+
+function handleCheckIP($conn, $input) {
+    $response = ['success' => true, 'allowed' => true, 'message' => ''];
+    
+    if (!isset($input['id_ujian'])) {
+        throw new Exception('Missing required fields');
+    }
+    
+    $id_ujian = (int)$input['id_ujian'];
+    $ip = isset($input['ip_address']) ? $input['ip_address'] : '';
+    
+    $stmt = $conn->prepare("SELECT allow_ip FROM ujian WHERE id = ?");
+    $stmt->bind_param("i", $id_ujian);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($row = $result->fetch_assoc() && !empty($row['allow_ip'])) {
+        $allowedIPs = json_decode($row['allow_ip'], true);
+        if (is_array($allowedIPs) && count($allowedIPs) > 0) {
+            $response['allowed'] = in_array($ip, $allowedIPs);
+            if (!$response['allowed']) {
+                $response['message'] = 'IP Anda tidak diizinkan untuk mengakses ujian ini';
+            }
+        }
     }
     $stmt->close();
     

@@ -1,17 +1,35 @@
 # Exam6 - Sistem Ujian Online
 
-Aplikasi ujian online berbasis PHP dan MySQL untuk sekolah.
+Aplikasi ujian online berbasis PHP dan MySQL untuk sekolah dengan fitur keamanan dan administrasi yang lengkap.
 
 ## Fitur
 
+### Admin
+- Manajemen ujian (CRUD) dengan pengaturan keamanan
+- Bank soal (tambah/edit/hapus soal dengan gambar)
+- Import soal dari DOCX
+- Rekap nilai dengan ekspor Excel
+- Profil sekolah (nama, logo, warna tema)
+- Pengaturan keamanan ujian:
+  - Kode Rahasia (Exam Code)
+  - Batasan IP Address
+  - Browser Lock (deteksi tab switching)
+  - Device Fingerprint (deteksi pergantian device)
+
+### Siswa
 - Landing page dengan list ujian tersedia
-- Sistem ujian interaktif untuk siswa
-- Bank soal (tambah/edit/hapus soal)
-- Manajemen ujian (CRUD)
-- Rekap nilai siswa
-- Riwayat nilai berdasarkan NIS
-- Konfigurasi sekolah (nama, logo, warna)
-- Tampilan responsif
+- Verifikasi kode rahasia sebelum ujian
+- Sistem ujian interaktif dengan timer
+- Auto-save jawaban secara berkala
+- Load jawaban tersimpan jika refresh halaman
+- Review jawaban setelah submit
+- Cek riwayat nilai berdasarkan NIS
+
+### Keamanan
+- CSRF Protection untuk semua API
+- Pengecekan ganda agar siswa tidak mengerjakan dua kali
+- Auto-submit jika pelanggaran browser melebihi batas
+- Log pelanggaran tab switching
 
 ## Requirements
 
@@ -26,20 +44,22 @@ exam6/
 ├── admin/                  # Panel admin
 │   ├── index.php         # Dashboard admin
 │   ├── login.php         # Login admin
-│   ├── tambah_soal.php  # Tambah/edit soal
+│   ├── tambah_soal.php   # Tambah/edit soal
 │   └── rekap_nilai.php   # Rekap nilai
 ├── api/                  # API endpoint
 │   └── submit_jawaban.php
 ├── config/
 │   ├── database.php       # Konfigurasi database
-│   └── init_sekolah.php # Konfigurasi sekolah
+│   └── init_sekolah.php   # Konfigurasi sekolah
 ├── vendor/               # Library (Bootstrap, Bootstrap Icons)
-├── uploads/             # File upload (logo)
-├── index.php           # Landing page
-├── ujian.php           # Halaman ujian siswa
-├── review.php         # Review jawaban
-├── riwayat.php         # Riwayat nilai
-└── docker-compose.yml # Konfigurasi Docker
+├── uploads/             # File upload (logo, gambar soal)
+├── backup_db/           # Database backup
+├── index.php            # Landing page
+├── ujian.php            # Halaman ujian siswa
+├── review.php           # Review jawaban
+├── riwayat.php          # Riwayat nilai
+├── upgrade_all.sql      # Upgrade database untuk fitur baru
+└── docker-compose.yml   # Konfigurasi Docker
 ```
 
 ## Cara Install
@@ -65,7 +85,9 @@ docker-compose up -d
      - Password: `pass123`
      - Database: `ujian_online`
 
-4. Import database `backup_db/ujian_online.sql` melalui phpMyAdmin
+4. Import database melalui phpMyAdmin:
+   -Untuk fresh install: `backup_db/ujian_online.sql`
+   -Untuk upgrade: `upgrade_all.sql`
 
 5. Login admin:
    - Username: `admin`
@@ -83,7 +105,9 @@ git clone https://github.com/natedekaka/exam6.git
 CREATE DATABASE ujian_online CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-3. Import `backup_db/ujian_online.sql` melalui phpMyAdmin
+3. Import database melalui phpMyAdmin:
+   - Untuk fresh install: `backup_db/ujian_online.sql`
+   - Untuk upgrade: `upgrade_all.sql`
 
 4. Konfigurasi database di `config/database.php`:
 ```php
@@ -94,6 +118,17 @@ $db   = 'ujian_online';
 ```
 
 5. Akses: http://localhost/exam6
+
+## Pengaturan Keamanan Ujian
+
+Saat membuat/mengedit ujian di admin, tersedia pengaturan keamanan:
+
+| Fitur | Deskripsi |
+|-------|------------|
+| **Kode Ujian** | Kode rahasia yang harus dimasukkan siswa untuk mengakses ujian |
+| **Batasan IP** | Batasi akses ujian hanya dari IP tertentu (pisahkan dengan koma) |
+| **Browser Lock** | Deteksi jika siswa switch tab/copy-paste. Akan melakukan auto-submit setelah X pelanggaran |
+| **Device Fingerprint** | Deteksi jika siswa更换设备 (ganti device/browser) |
 
 ## Akun Default
 
@@ -107,14 +142,17 @@ $db   = 'ujian_online';
 
 1. **Login**: Buka `/admin/login.php`
 2. **Tambah Ujian**: Dashboard → Tambah Ujian
-3. **Tambah Soal**: Klik tombol "Soal" pada ujian → Tambah Soal
-4. **Edit Profil Sekolah**: Dashboard → Profil Sekolah
+3. **Atur Keamanan**: Pada form ujian, bagian "Pengaturan Keamanan"
+4. **Tambah Soal**: Klik tombol "Soal" pada ujian → Tambah Soal
+5. **Edit Profil Sekolah**: Dashboard → Profil Sekolah
 
 ### Siswa
 
 1. Buka landing page
-2. Pilih ujian yang tersedia
-3. Jawab soal dan submit
+2. Jika ujian menggunakan kode rahasia, masukkan kode terlebih dahulu
+3. Isi identitas (NIS, Nama, Kelas)
+4. Jawab semua soal
+5. Klik "Kirim Jawaban"
 
 ### Cek Nilai
 
@@ -125,7 +163,7 @@ $db   = 'ujian_online';
 ## Teknologi
 
 - **Frontend**: Bootstrap 5, Bootstrap Icons
-- **Backend**: PHP 8 Native
+- **Backend**: PHP 8 Native (Native, no framework)
 - **Database**: MySQL
 
 ## Lisensi

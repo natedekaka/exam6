@@ -23,6 +23,10 @@ $message_type = '';
 $has_new_columns = false;
 $has_tampilkan_skor = false;
 $has_acak_opsi = false;
+$has_kode_ujian = false;
+$has_allow_ip = false;
+$has_browser_lock = false;
+$has_device_check = false;
 try {
     $result_cols = $conn->query("SHOW COLUMNS FROM ujian LIKE 'acak_soal'");
     if ($result_cols && $result_cols->num_rows > 0) {
@@ -41,10 +45,35 @@ try {
     if ($result_cols3 && $result_cols3->num_rows > 0) {
         $has_acak_opsi = true;
     }
+    $result_cols4 = $conn->query("SHOW COLUMNS FROM ujian LIKE 'tampilkan_review'");
+    if ($result_cols4 && $result_cols4->num_rows > 0) {
+        $has_tampilkan_review = true;
+    }
+    $result_cols5 = $conn->query("SHOW COLUMNS FROM ujian LIKE 'kode_ujian'");
+    if ($result_cols5 && $result_cols5->num_rows > 0) {
+        $has_kode_ujian = true;
+    }
+    $result_cols6 = $conn->query("SHOW COLUMNS FROM ujian LIKE 'allow_ip'");
+    if ($result_cols6 && $result_cols6->num_rows > 0) {
+        $has_allow_ip = true;
+    }
+    $result_cols7 = $conn->query("SHOW COLUMNS FROM ujian LIKE 'enable_browser_lock'");
+    if ($result_cols7 && $result_cols7->num_rows > 0) {
+        $has_browser_lock = true;
+    }
+    $result_cols8 = $conn->query("SHOW COLUMNS FROM ujian LIKE 'enable_device_check'");
+    if ($result_cols8 && $result_cols8->num_rows > 0) {
+        $has_device_check = true;
+    }
 } catch (Exception $e) {
     $has_new_columns = false;
     $has_tampilkan_skor = false;
     $has_acak_opsi = false;
+    $has_tampilkan_review = false;
+    $has_kode_ujian = false;
+    $has_allow_ip = false;
+    $has_browser_lock = false;
+    $has_device_check = false;
 }
 
 if (isset($_GET['toggle']) && isset($_GET['id'])) {
@@ -87,6 +116,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_ujian'])) {
         $tampilkan_skor = $_POST['tampilkan_skor'];
     }
     
+    // New security fields
+    $kode_ujian = '';
+    if ($has_kode_ujian && isset($_POST['kode_ujian'])) {
+        $kode_ujian = trim($_POST['kode_ujian']);
+    }
+    
+    $allow_ip = null;
+    if ($has_allow_ip && isset($_POST['allow_ip']) && !empty($_POST['allow_ip'])) {
+        $allow_ip_json = $_POST['allow_ip'];
+        $ip_list = array_filter(array_map('trim', explode(',', $allow_ip_json)));
+        $allow_ip = json_encode(array_values($ip_list));
+    }
+    
+    $enable_browser_lock = 'tidak';
+    if ($has_browser_lock && isset($_POST['enable_browser_lock']) && ($_POST['enable_browser_lock'] === 'ya' || $_POST['enable_browser_lock'] === 'tidak')) {
+        $enable_browser_lock = $_POST['enable_browser_lock'];
+    }
+    
+    $max_violations = 3;
+    if (isset($_POST['max_violations']) && (int)$_POST['max_violations'] > 0) {
+        $max_violations = (int)$_POST['max_violations'];
+    }
+    
+    $enable_device_check = 'tidak';
+    if ($has_device_check && isset($_POST['enable_device_check']) && ($_POST['enable_device_check'] === 'ya' || $_POST['enable_device_check'] === 'tidak')) {
+        $enable_device_check = $_POST['enable_device_check'];
+    }
+    
     $edit_id = isset($_POST['edit_id']) ? (int)$_POST['edit_id'] : 0;
     $original_updated = $_POST['original_updated'] ?? '';
     
@@ -106,35 +163,122 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_ujian'])) {
                 $message = "Data telah diubah oleh pengguna lain. Silakan refresh dan coba lagi.";
                 $message_type = 'danger';
             } else {
-                if ($has_acak_opsi) {
-                    $stmt = $conn->prepare("UPDATE ujian SET judul_ujian = ?, deskripsi = ?, status = ?, waktu_tersedia = ?, acak_soal = ?, acak_opsi = ?, tampilkan_review = ?, tampilkan_skor = ? WHERE id = ?");
-                    $stmt->bind_param("sssissssi", $judul, $deskripsi, $status, $waktu_tersedia, $acak_soal, $acak_opsi, $tampilkan_review, $tampilkan_skor, $edit_id);
-                } elseif ($has_tampilkan_skor) {
-                    $stmt = $conn->prepare("UPDATE ujian SET judul_ujian = ?, deskripsi = ?, status = ?, waktu_tersedia = ?, acak_soal = ?, tampilkan_review = ?, tampilkan_skor = ? WHERE id = ?");
-                    $stmt->bind_param("sssisssi", $judul, $deskripsi, $status, $waktu_tersedia, $acak_soal, $tampilkan_review, $tampilkan_skor, $edit_id);
-                } elseif ($has_new_columns) {
-                    $stmt = $conn->prepare("UPDATE ujian SET judul_ujian = ?, deskripsi = ?, status = ?, waktu_tersedia = ?, acak_soal = ?, tampilkan_review = ? WHERE id = ?");
-                    $stmt->bind_param("sssiisi", $judul, $deskripsi, $status, $waktu_tersedia, $acak_soal, $tampilkan_review, $edit_id);
-                } else {
-                    $stmt = $conn->prepare("UPDATE ujian SET judul_ujian = ?, deskripsi = ?, status = ? WHERE id = ?");
-                    $stmt->bind_param("sssi", $judul, $deskripsi, $status, $edit_id);
+                $fields = "judul_ujian = ?, deskripsi = ?, status = ?";
+                $params = [$judul, $deskripsi, $status];
+                $types = "sss";
+                
+                if ($has_new_columns) {
+                    $fields .= ", waktu_tersedia = ?, acak_soal = ?";
+                    $params[] = $waktu_tersedia;
+                    $params[] = $acak_soal;
+                    $types .= "ii";
                 }
+                if ($has_acak_opsi) {
+                    $fields .= ", acak_opsi = ?";
+                    $params[] = $acak_opsi;
+                    $types .= "s";
+                }
+                if ($has_tampilkan_skor) {
+                    $fields .= ", tampilkan_skor = ?";
+                    $params[] = $tampilkan_skor;
+                    $types .= "s";
+                }
+                if ($has_tampilkan_review) {
+                    $fields .= ", tampilkan_review = ?";
+                    $params[] = $tampilkan_review;
+                    $types .= "s";
+                }
+                
+                if ($has_kode_ujian) {
+                    $fields .= ", kode_ujian = ?";
+                    $params[] = $kode_ujian;
+                    $types .= "s";
+                }
+                if ($has_allow_ip) {
+                    $fields .= ", allow_ip = ?";
+                    $params[] = $allow_ip;
+                    $types .= "s";
+                }
+                if ($has_browser_lock) {
+                    $fields .= ", enable_browser_lock = ?, max_violations = ?";
+                    $params[] = $enable_browser_lock;
+                    $params[] = $max_violations;
+                    $types .= "si";
+                }
+                if ($has_device_check) {
+                    $fields .= ", enable_device_check = ?";
+                    $params[] = $enable_device_check;
+                    $types .= "s";
+                }
+                
+                $fields .= " WHERE id = ?";
+                $params[] = $edit_id;
+                $types .= "i";
+                
+                $stmt = $conn->prepare("UPDATE ujian SET $fields");
+                $stmt->bind_param($types, ...$params);
                 $message = "Ujian berhasil diperbarui!";
             }
         } else {
-            if ($has_acak_opsi) {
-                $stmt = $conn->prepare("INSERT INTO ujian (judul_ujian, deskripsi, status, waktu_tersedia, acak_soal, acak_opsi, tampilkan_review, tampilkan_skor) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->bind_param("sssissss", $judul, $deskripsi, $status, $waktu_tersedia, $acak_soal, $acak_opsi, $tampilkan_review, $tampilkan_skor);
-            } elseif ($has_tampilkan_skor) {
-                $stmt = $conn->prepare("INSERT INTO ujian (judul_ujian, deskripsi, status, waktu_tersedia, acak_soal, tampilkan_review, tampilkan_skor) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                $stmt->bind_param("sssisss", $judul, $deskripsi, $status, $waktu_tersedia, $acak_soal, $tampilkan_review, $tampilkan_skor);
-            } elseif ($has_new_columns) {
-                $stmt = $conn->prepare("INSERT INTO ujian (judul_ujian, deskripsi, status, waktu_tersedia, acak_soal, tampilkan_review) VALUES (?, ?, ?, ?, ?, ?)");
-                $stmt->bind_param("sssiis", $judul, $deskripsi, $status, $waktu_tersedia, $acak_soal, $tampilkan_review);
-            } else {
-                $stmt = $conn->prepare("INSERT INTO ujian (judul_ujian, deskripsi, status) VALUES (?, ?, ?)");
-                $stmt->bind_param("sss", $judul, $deskripsi, $status);
+            $fields = "judul_ujian, deskripsi, status";
+            $values = "?, ?, ?";
+            $params = [$judul, $deskripsi, $status];
+            $types = "sss";
+            
+            if ($has_new_columns) {
+                $fields .= ", waktu_tersedia, acak_soal";
+                $values .= ", ?, ?";
+                $params[] = $waktu_tersedia;
+                $params[] = $acak_soal;
+                $types .= "ii";
             }
+            if ($has_acak_opsi) {
+                $fields .= ", acak_opsi";
+                $values .= ", ?";
+                $params[] = $acak_opsi;
+                $types .= "s";
+            }
+            if ($has_tampilkan_skor) {
+                $fields .= ", tampilkan_skor";
+                $values .= ", ?";
+                $params[] = $tampilkan_skor;
+                $types .= "s";
+            }
+            if ($has_tampilkan_review) {
+                $fields .= ", tampilkan_review";
+                $values .= ", ?";
+                $params[] = $tampilkan_review;
+                $types .= "s";
+            }
+            
+            if ($has_kode_ujian) {
+                $fields .= ", kode_ujian";
+                $values .= ", ?";
+                $params[] = $kode_ujian;
+                $types .= "s";
+            }
+            if ($has_allow_ip) {
+                $fields .= ", allow_ip";
+                $values .= ", ?";
+                $params[] = $allow_ip;
+                $types .= "s";
+            }
+            if ($has_browser_lock) {
+                $fields .= ", enable_browser_lock, max_violations";
+                $values .= ", ?, ?";
+                $params[] = $enable_browser_lock;
+                $params[] = $max_violations;
+                $types .= "si";
+            }
+            if ($has_device_check) {
+                $fields .= ", enable_device_check";
+                $values .= ", ?";
+                $params[] = $enable_device_check;
+                $types .= "s";
+            }
+            
+            $stmt = $conn->prepare("INSERT INTO ujian ($fields) VALUES ($values)");
+            $stmt->bind_param($types, ...$params);
             $message = "Ujian berhasil ditambahkan!";
         }
         
@@ -619,6 +763,7 @@ if (isset($_GET['edit'])) {
                         </div>
                         <?php endif; ?>
 
+                        <?php if ($has_tampilkan_review): ?>
                         <div class="col-md-4 mb-3">
                             <label class="form-label fw-semibold">Tampilkan Review</label>
                             <select name="tampilkan_review" class="form-select">
@@ -626,6 +771,7 @@ if (isset($_GET['edit'])) {
                                 <option value="ya" <?= $edit_ujian && ($edit_ujian['tampilkan_review'] ?? 'tidak') === 'ya' ? 'selected' : '' ?>>Ya - Tampilkan setelah submit</option>
                             </select>
                         </div>
+                        <?php endif; ?>
 
                         <?php if ($has_tampilkan_skor): ?>
                         <div class="col-md-4 mb-3">
@@ -637,6 +783,67 @@ if (isset($_GET['edit'])) {
                         </div>
                         <?php endif; ?>
                         <?php endif; ?>
+                    </div>
+                    
+                    <?php if ($has_kode_ujian || $has_allow_ip || $has_browser_lock || $has_device_check): ?>
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h6 class="fw-bold text-primary"><i class="bi bi-shield-check me-2"></i>Pengaturan Keamanan</h6>
+                        </div>
+                    </div>
+                    <hr>
+                    
+                    <div class="row">
+                        <?php if ($has_kode_ujian): ?>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Kode Ujian (Exam Code)</label>
+                            <input type="text" name="kode_ujian" class="form-control" 
+                                   value="<?= $edit_ujian ? htmlspecialchars($edit_ujian['kode_ujian'] ?? '') : '' ?>"
+                                   placeholder="Kosongkan jika tidak menggunakan kode">
+                            <small class="text-muted">Siswa harus memasukkan kode ini untuk mengakses ujian</small>
+                        </div>
+                        <?php endif; ?>
+                        
+                        <?php if ($has_allow_ip): ?>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Batasan IP Address</label>
+                            <input type="text" name="allow_ip" class="form-control" 
+                                   value="<?= $edit_ujian && !empty($edit_ujian['allow_ip']) ? htmlspecialchars(implode(', ', json_decode($edit_ujian['allow_ip'] ?? '[]', true) ?: [])) : '' ?>"
+                                   placeholder="192.168.1.1, 10.0.0.1">
+                            <small class="text-muted">Pisahkan dengan koma. Kosongkan jika tidak dibatasi</small>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <div class="row">
+                        <?php if ($has_browser_lock): ?>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-semibold">Aktifkan Browser Lock</label>
+                            <select name="enable_browser_lock" class="form-select">
+                                <option value="tidak" <?= $edit_ujian && ($edit_ujian['enable_browser_lock'] ?? 'tidak') === 'tidak' ? 'selected' : '' ?>>Tidak</option>
+                                <option value="ya" <?= $edit_ujian && ($edit_ujian['enable_browser_lock'] ?? 'tidak') === 'ya' ? 'selected' : '' ?>>Ya - Deteksi tab switching</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-semibold">Maksimal Pelanggaran</label>
+                            <input type="number" name="max_violations" class="form-control" 
+                                   value="<?= $edit_ujian ? (int)($edit_ujian['max_violations'] ?? 3) : 3 ?>"
+                                   min="1" max="10">
+                            <small class="text-muted">Jumlah pelanggaran sebelum auto-submit</small>
+                        </div>
+                        <?php endif; ?>
+                        
+                        <?php if ($has_device_check): ?>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-semibold">Cek Device Fingerprint</label>
+                            <select name="enable_device_check" class="form-select">
+                                <option value="tidak" <?= $edit_ujian && ($edit_ujian['enable_device_check'] ?? 'tidak') === 'tidak' ? 'selected' : '' ?>>Tidak</option>
+                                <option value="ya" <?= $edit_ujian && ($edit_ujian['enable_device_check'] ?? 'tidak') === 'ya' ? 'selected' : '' ?>>Ya - Deteksi pergantian device</option>
+                            </select>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                    <?php endif; ?>
                     </div>
                     
                     <div class="mb-3">
