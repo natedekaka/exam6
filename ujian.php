@@ -750,7 +750,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
         </div>
         
         <footer class="text-center text-muted py-4">
-            <small>&copy; <?= date('Y') ?> Sistem Ujian Online</small>
+            <small>&copy; <?= date('Y') ?> Sistem Ujian Online - by natedekaka</small>
         </footer>
     </div>
 

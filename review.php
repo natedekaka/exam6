@@ -287,7 +287,7 @@ foreach ($detail_jawaban as $jw) {
         </div>
         
         <footer class="text-center text-muted py-4 mt-5">
-            <small>&copy; <?= date('Y') ?> Sistem Ujian Online</small>
+            <small>&copy; <?= date('Y') ?> Sistem Ujian Online - by natedekaka</small>
         </footer>
     </div>
 

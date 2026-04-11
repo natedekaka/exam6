@@ -314,7 +314,7 @@ $ujian_list = $conn->query("SELECT * FROM ujian WHERE status = 'aktif' ORDER BY 
                     <p class="text-white-50 mb-0">Platform ujian online untuk memudahkan proses pembelajaran.</p>
                 </div>
                 <div class="col-md-6 text-md-end">
-                    <p class="text-white-50 mb-0">&copy; <?= date('Y') ?> Sistem Ujian Online</p>
+                    <p class="text-white-50 mb-0">&copy; <?= date('Y') ?> Sistem Ujian Online - by natedekaka</p>
                 </div>
             </div>
         </div>
