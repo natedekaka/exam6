@@ -1,0 +1,17 @@
+# Ignore uploads and cache
+uploads/*
+!uploads/index.php
+
+# Ignore docker data
+migrations/*
+!migrations/.gitkeep
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE
+.idea/
+.vscode/
+*.swp
+*.swo
