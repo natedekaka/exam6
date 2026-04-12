@@ -370,16 +370,71 @@ if (isset($_POST['batch_remove_remedi']) && isset($_POST['selected_ids']) && iss
         @media (max-width: 992px) {
             .sidebar { transform: translateX(-100%); }
             .sidebar.show { transform: translateX(0); }
-            .main-content { margin-left: 0; padding: 4rem 1rem 1rem; }
+            .main-content { margin-left: 0; width: 100%; padding: 4rem 1rem 1rem; }
             .mobile-toggle { display: flex; }
             .overlay.show { display: block; }
         }
         
-        @media (max-width: 768px) {
+        @media (max-width: 576px) {
+            .page-header { padding: 1rem; flex-direction: column; gap: 0.75rem; }
+            .page-header h3 { font-size: 1.1rem; }
+            .card { margin-bottom: 1rem; border-radius: 8px; }
+            .card-header { padding: 1rem; }
             .card-body { padding: 1rem; }
-            .stat-card { margin-bottom: 1rem; }
-            .table { font-size: 0.875rem; }
-            .btn { width: 100%; margin-bottom: 0.5rem; }
+            .card-body .row { margin: 0; }
+            .card-body .col-md-4, .card-body .col-md-6, .card-body .col-12 { 
+                padding-left: 0; 
+                padding-right: 0; 
+                margin-bottom: 0.75rem;
+            }
+            .form-label { font-size: 0.875rem; margin-bottom: 0.25rem; }
+            .form-control, .form-select { 
+                font-size: 0.875rem; 
+                padding: 0.5rem 0.75rem;
+            }
+            .btn { 
+                width: 100%; 
+                margin-bottom: 0.5rem; 
+                padding: 0.5rem 1rem;
+                font-size: 0.875rem;
+            }
+            .btn-group .btn, .btn-group form { width: auto; margin-bottom: 0; display: inline-block; }
+            .stat-card { 
+                margin-bottom: 0.75rem; 
+                padding: 1rem;
+            }
+            .stat-value { font-size: 1.5rem; }
+            .stat-label { font-size: 0.75rem; }
+            .table-responsive { 
+                margin: 0 -1rem; 
+                padding: 0 1rem;
+            }
+            .table { 
+                font-size: 0.8rem; 
+            }
+            .table thead th, .table tbody td { 
+                padding: 0.5rem 0.25rem; 
+                white-space: nowrap;
+            }
+            .badge { 
+                font-size: 0.65rem; 
+                padding: 0.25rem 0.5rem;
+            }
+            .search-box { width: 100%; margin-bottom: 0.75rem; }
+            .search-box input { 
+                width: 100%; 
+                padding: 0.5rem 0.75rem 0.5rem 2rem;
+            }
+            .search-box input:focus { width: 100%; }
+            .mobile-toggle { 
+                top: 0.75rem; 
+                left: 0.75rem; 
+                padding: 0.5rem;
+                font-size: 1.1rem;
+            }
+            .main-content { padding: 3.5rem 0.75rem 0.75rem; }
+            .sidebar-brand { padding: 1rem; }
+            .sidebar-menu a { padding: 0.75rem 1rem; font-size: 0.875rem; }
         }
         
         .animate-fade-in { animation: fadeIn 0.3s ease; }
@@ -772,6 +827,15 @@ if (isset($_POST['batch_remove_remedi']) && isset($_POST['selected_ids']) && iss
             document.querySelector('.sidebar').classList.toggle('show');
             document.querySelector('.overlay').classList.toggle('show');
         }
+        
+        document.querySelectorAll('.sidebar a').forEach(function(link) {
+            link.addEventListener('click', function() {
+                if (window.innerWidth <= 992) {
+                    document.querySelector('.sidebar').classList.remove('show');
+                    document.querySelector('.overlay').classList.remove('show');
+                }
+            });
+        });
         
         function showToast(message, type = 'success') {
             const toastContainer = document.createElement('div');

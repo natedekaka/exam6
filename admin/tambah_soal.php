@@ -651,6 +651,129 @@ if (isset($_SESSION['import_message'])) {
         .opsi-d { background: #fce7f3; color: #be185d; }
         .opsi-e { background: #e0e7ff; color: #4338ca; }
         
+        @media (max-width: 576px) {
+            .sidebar a {
+                font-size: 0.875rem;
+                padding: 0.75rem 1rem;
+            }
+            
+            .sidebar-brand {
+                padding: 1rem;
+            }
+            
+            .sidebar-brand h5 {
+                font-size: 0.75rem;
+            }
+            
+            .school-logo {
+                width: 40px;
+                height: 40px;
+            }
+            
+            .text-white.fw-bold {
+                font-size: 0.75rem;
+            }
+            
+            .main-content {
+                padding: 3.5rem 0.5rem 0.5rem;
+                width: 100%;
+            }
+            
+            .page-header {
+                padding: 1rem;
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+            
+            .page-header h3 {
+                font-size: 1.1rem;
+            }
+            
+            .page-header .btn {
+                width: 100%;
+                font-size: 0.8125rem;
+            }
+            
+            .card {
+                margin-bottom: 1rem;
+                border-radius: 8px;
+            }
+            
+            .card-body {
+                padding: 0.75rem;
+            }
+            
+            .question-box {
+                padding: 1rem;
+            }
+            
+            .question-box textarea {
+                font-size: 0.875rem;
+            }
+            
+            .opsi-card {
+                padding: 0.5rem;
+                font-size: 0.8125rem;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+            
+            .opsi-number {
+                width: 24px;
+                height: 24px;
+                font-size: 0.75rem;
+            }
+            
+            .table {
+                font-size: 0.75rem;
+                min-width: 500px;
+            }
+            
+            .table thead th, .table tbody td {
+                padding: 0.375rem 0.25rem;
+            }
+            
+            .btn {
+                padding: 0.375rem 0.75rem;
+                font-size: 0.8125rem;
+                width: 100%;
+                margin-bottom: 0.5rem;
+            }
+            
+            .btn:last-child {
+                margin-bottom: 0;
+            }
+            
+            .btn-group {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .mobile-toggle {
+                padding: 0.5rem;
+                font-size: 1rem;
+                top: 0.5rem;
+                left: 0.5rem;
+            }
+            
+            .form-label {
+                font-size: 0.8125rem;
+                margin-bottom: 0.25rem;
+            }
+            
+            .form-control, .form-select {
+                font-size: 0.875rem;
+                padding: 0.5rem 0.75rem;
+            }
+            
+            .table-scroll {
+                margin: 0 -0.75rem;
+                padding: 0 0.75rem;
+            }
+        }
+        
         .mobile-toggle {
             display: none;
             position: fixed;
@@ -691,10 +814,14 @@ if (isset($_SESSION['import_message'])) {
         @media (max-width: 992px) {
             .sidebar {
                 transform: translateX(-100%);
+                z-index: 1002;
+                pointer-events: none;
             }
             
             .sidebar.show {
                 transform: translateX(0);
+                z-index: 1002;
+                pointer-events: auto;
             }
             
             .main-content {
@@ -877,14 +1004,7 @@ if (isset($_SESSION['import_message'])) {
                 <span class="badge bg-primary fs-6"><?= count($soal_list) ?> soal</span>
                 <?php endif; ?>
             </div>
-            <div class="d-flex gap-2">
-                <a href="download_template.php" class="btn btn-outline-primary btn-sm" target="_blank">
-                    <i class="bi bi-download me-1"></i> Download Template
-                </a>
-                <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#importModal">
-                    <i class="bi bi-upload me-1"></i> Import DOCX
-                </button>
-            </div>
+            
         </div>
         
         <?php if ($message): ?>
@@ -937,11 +1057,10 @@ if (isset($_SESSION['import_message'])) {
             <div class="card-body">
                 <form method="POST" enctype="multipart/form-data" id="soalForm" autocomplete="off">
                     <input type="hidden" name="csrf_token" value="<?= $csrf_token ?>">
+                    <input type="hidden" name="id_ujian" value="<?= $selected_ujian ?>">
                     <?php if ($edit_soal): ?>
                         <input type="hidden" name="edit_id" value="<?= $edit_soal['id'] ?>">
                         <input type="hidden" name="original_updated" value="<?= $edit_soal['updated_at'] ?>">
-                    <?php else: ?>
-                        <input type="hidden" name="id_ujian" value="<?= $selected_ujian ?>">
                     <?php endif; ?>
                     
                     <div class="question-box">
@@ -1172,6 +1291,15 @@ if (isset($_SESSION['import_message'])) {
             document.querySelector('.overlay').classList.toggle('show');
         }
         
+        document.querySelectorAll('.sidebar a').forEach(function(link) {
+            link.addEventListener('click', function() {
+                if (window.innerWidth <= 992) {
+                    document.querySelector('.sidebar').classList.remove('show');
+                    document.querySelector('.overlay').classList.remove('show');
+                }
+            });
+        });
+        
         function updateFileName(input, labelId) {
             const label = document.getElementById(labelId);
             if (input.files && input.files[0]) {
@@ -1199,11 +1327,13 @@ if (isset($_SESSION['import_message'])) {
             const label = document.getElementById(labelId);
             if (input.files && input.files[0]) {
                 const file = input.files[0];
-                const validTypes = ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+                const validTypes = ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
                 const maxSize = 5 * 1024 * 1024;
+                const ext = input.files[0].name.split('.').pop().toLowerCase();
+                const validExts = ['docx', 'txt'];
                 
-                if (!validTypes.includes(file.type)) {
-                    alert('Format file tidak valid. Gunakan file .docx');
+                if (!validExts.includes(ext)) {
+                    alert('Format file tidak valid. Gunakan file .docx atau .txt');
                     input.value = '';
                     return;
                 }
@@ -1360,55 +1490,5 @@ if (isset($_SESSION['import_message'])) {
         }
     </style>
 
-    <div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content" style="border: none; border-radius: 16px;">
-                <div class="modal-header" style="border-bottom: 1px solid #e2e8f0; padding: 1.25rem 1.5rem;">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-upload me-2"></i>Import Soal dari DOCX</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form method="POST" enctype="multipart/form-data" action="import_soal.php">
-                    <div class="modal-body" style="padding: 1.5rem;">
-                        <input type="hidden" name="csrf_token" value="<?= $csrf_token ?>">
-                        <input type="hidden" name="id_ujian" value="<?= $selected_ujian ?>">
-                        
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Pilih File DOCX</label>
-                            <div class="file-upload-wrapper">
-                                <input type="file" name="file_docx" accept=".docx" required onchange="updateDocxName(this, 'label-import')">
-                                <div class="file-upload-label" id="label-import">
-                                    <i class="bi bi-cloud-upload"></i> Klik untuk upload file .docx
-                                </div>
-                            </div>
-                            <small class="text-muted d-block mt-2">Format: .docx (Word 2007 ke atas)</small>
-                        </div>
-                        
-                        <div class="alert alert-info mb-0">
-                            <i class="bi bi-info-circle me-2"></i>
-                            <strong>Format soal dalam DOCX:</strong><br>
-                            PERTANYAAN: ...<br>
-                            OPSI_A: ...<br>
-                            OPSI_B: ...<br>
-                            OPSI_C: ...<br>
-                            OPSI_D: ...<br>
-                            OPSI_E: ...<br>
-                            KUNCI: A/B/C/D/E<br>
-                            POIN: 10<br>
-                            GAMBAR_PERTANYAAN: nama_file.jpg (opsional)<br>
-                            GAMBAR_A: nama_file.jpg (opsional)<br><br>
-                            <em>Pisahkan setiap soal dengan 1 baris kosong</em><br>
-                            <em>Untuk gambar: embed di DOCX atau tulis nama file saja</em>
-                        </div>
-                    </div>
-                    <div class="modal-footer" style="border-top: 1px solid #e2e8f0; padding: 1rem 1.5rem;">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                        <button type="submit" name="import_soal" class="btn btn-success">
-                            <i class="bi bi-upload me-1"></i> Import
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</body>
+    </body>
 </html>

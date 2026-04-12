@@ -220,15 +220,18 @@ $sekolah = getKonfigurasiSekolah($conn);
 
             .main-content {
                 margin-left: 0;
+                width: 100%;
                 padding: 4rem 1rem 1rem;
             }
 
             .page-header {
                 padding: 1rem;
+                flex-direction: column;
+                gap: 0.75rem;
             }
 
             .page-header h3 {
-                font-size: 1.25rem;
+                font-size: 1.1rem;
             }
 
             .logo-preview {
@@ -244,6 +247,7 @@ $sekolah = getKonfigurasiSekolah($conn);
 
             .col-md-4, .col-md-8 {
                 width: 100%;
+                margin-bottom: 1rem;
             }
 
             .logo-preview {
@@ -255,19 +259,33 @@ $sekolah = getKonfigurasiSekolah($conn);
                 font-size: 0.9rem;
             }
 
+            .form-control, .form-select {
+                font-size: 0.875rem;
+                padding: 0.5rem 0.75rem;
+            }
+
             .btn {
                 width: 100%;
                 margin-bottom: 0.5rem;
+            }
+            
+            .card {
+                border-radius: 8px;
+                margin-bottom: 1rem;
             }
         }
 
         @media (max-width: 575.98px) {
             .main-content {
-                padding: 4rem 0.75rem 1rem;
+                padding: 3.5rem 0.5rem 1rem;
+            }
+
+            .page-header {
+                padding: 0.75rem;
             }
 
             .page-header h3 {
-                font-size: 1.1rem;
+                font-size: 1rem;
             }
 
             .logo-preview {
@@ -278,10 +296,21 @@ $sekolah = getKonfigurasiSekolah($conn);
             .mobile-toggle {
                 padding: 8px 12px;
                 font-size: 1rem;
+                top: 0.5rem;
+                left: 0.5rem;
             }
 
             .mobile-toggle span {
                 display: none;
+            }
+            
+            .sidebar-brand {
+                padding: 1rem;
+            }
+            
+            .sidebar-menu a {
+                padding: 0.75rem 1rem;
+                font-size: 0.875rem;
             }
         }
     </style>
@@ -421,6 +450,15 @@ $sekolah = getKonfigurasiSekolah($conn);
                 sidebar.classList.remove('active');
                 document.querySelector('.overlay').classList.remove('show');
             }
+        });
+        
+        document.querySelectorAll('.sidebar a').forEach(function(link) {
+            link.addEventListener('click', function() {
+                if (window.innerWidth < 992) {
+                    document.getElementById('sidebar').classList.remove('active');
+                    document.querySelector('.overlay').classList.remove('show');
+                }
+            });
         });
 
         document.querySelector('input[name="warna_primer"]').addEventListener('input', function() {

@@ -299,7 +299,7 @@ if (isset($_GET['refresh'])) {
             display: none;
         }
         
-        @media (max-width: 768px) {
+        @media (max-width: 992px) {
             .sidebar {
                 transform: translateX(-100%);
                 transition: transform 0.3s;
@@ -311,6 +311,8 @@ if (isset($_GET['refresh'])) {
             
             .main-content {
                 margin-left: 0;
+                width: 100%;
+                padding: 4rem 1rem 1rem;
             }
             
             .mobile-toggle {
@@ -327,7 +329,6 @@ if (isset($_GET['refresh'])) {
             }
             
             .overlay {
-                display: block;
                 position: fixed;
                 top: 0;
                 left: 0;
@@ -335,12 +336,37 @@ if (isset($_GET['refresh'])) {
                 bottom: 0;
                 background: rgba(0,0,0,0.5);
                 z-index: 999;
-                display: none;
             }
             
             .overlay.show {
                 display: block;
             }
+        }
+        
+        @media (max-width: 576px) {
+            .page-header { 
+                padding: 1rem; 
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+            .page-header h3 { font-size: 1.1rem; }
+            .card { margin-bottom: 1rem; border-radius: 8px; }
+            .card-header { padding: 1rem; flex-direction: column; gap: 0.5rem; }
+            .card-body { padding: 1rem; }
+            .form-label { font-size: 0.875rem; }
+            .form-control, .form-select { font-size: 0.875rem; padding: 0.5rem 0.75rem; }
+            .btn { 
+                width: 100%; 
+                margin-bottom: 0.5rem; 
+                padding: 0.5rem 1rem;
+                font-size: 0.875rem;
+            }
+            .table { font-size: 0.8rem; }
+            .table thead th, .table tbody td { padding: 0.5rem 0.25rem; }
+            .badge { font-size: 0.65rem; padding: 0.25rem 0.5rem; }
+            .sidebar-brand { padding: 1rem; }
+            .sidebar-menu a { padding: 0.75rem 1rem; font-size: 0.875rem; }
+            .main-content { padding: 3.5rem 0.75rem 0.75rem; }
         }
     </style>
 </head>
@@ -557,6 +583,15 @@ if (isset($_GET['refresh'])) {
             document.querySelector('.sidebar').classList.toggle('show');
             document.querySelector('.overlay').classList.toggle('show');
         }
+        
+        document.querySelectorAll('.sidebar a').forEach(function(link) {
+            link.addEventListener('click', function() {
+                if (window.innerWidth <= 992) {
+                    document.querySelector('.sidebar').classList.remove('show');
+                    document.querySelector('.overlay').classList.remove('show');
+                }
+            });
+        });
     </script>
 </body>
 </html>

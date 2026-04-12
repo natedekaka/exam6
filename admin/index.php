@@ -350,7 +350,7 @@ if (isset($_GET['edit'])) {
             position: fixed;
             left: 0;
             top: 0;
-            z-index: 100;
+            z-index: 1000;
             transition: transform 0.3s ease;
         }
         
@@ -378,6 +378,8 @@ if (isset($_GET['edit'])) {
             transition: all 0.2s ease;
             border-left: 3px solid transparent;
             font-size: 0.9375rem;
+            position: relative;
+            z-index: 10;
         }
         
         .sidebar a:hover { background: rgba(255,255,255,0.05); color: #fff; }
@@ -562,18 +564,76 @@ if (isset($_GET['edit'])) {
         @media (max-width: 992px) {
             .sidebar { transform: translateX(-100%); }
             .sidebar.show { transform: translateX(0); }
-            .main-content { margin-left: 0; padding: 4rem 1rem 1rem; }
+            .main-content { margin-left: 0; width: 100%; padding: 4rem 1rem 1rem; }
             .mobile-toggle { display: flex; }
             .overlay.show { display: block; }
             .page-header { padding: 1rem; flex-direction: column; align-items: flex-start; }
         }
         
-        @media (max-width: 768px) {
+        @media (max-width: 576px) {
+            .page-header { padding: 1rem; }
+            .page-header h3 { font-size: 1.1rem; }
+            .card { margin-bottom: 1rem; border-radius: 8px; }
+            .card-header { padding: 1rem; font-size: 0.95rem; flex-direction: column; gap: 0.5rem; align-items: flex-start !important; }
             .card-body { padding: 1rem; }
-            .table { font-size: 0.875rem; }
-            .table thead th, .table tbody td { padding: 0.5rem; }
-            .btn { width: 100%; margin-bottom: 0.5rem; }
-            .action-buttons .btn { width: auto; margin-bottom: 0; }
+            .card-body .row { margin: 0; }
+            .card-body .col-md-6, .card-body .col-md-3, .card-body .col-md-4, .card-body .col-md-12 { 
+                padding-left: 0; 
+                padding-right: 0; 
+                margin-bottom: 0.75rem;
+            }
+            .form-label { font-size: 0.875rem; margin-bottom: 0.25rem; }
+            .form-control, .form-select { 
+                font-size: 0.875rem; 
+                padding: 0.5rem 0.75rem;
+            }
+            .btn { 
+                width: 100%; 
+                margin-bottom: 0.5rem; 
+                padding: 0.5rem 1rem;
+                font-size: 0.875rem;
+            }
+            .btn-group .btn { width: auto; margin-bottom: 0; }
+            .table-scroll { 
+                margin: 0 -1rem; 
+                padding: 0 1rem;
+            }
+            .table { 
+                font-size: 0.8rem; 
+                min-width: 600px;
+            }
+            .table thead th, .table tbody td { 
+                padding: 0.5rem 0.25rem; 
+                white-space: nowrap;
+            }
+            .badge { 
+                font-size: 0.65rem; 
+                padding: 0.25rem 0.5rem;
+            }
+            .dropdown-menu { 
+                font-size: 0.875rem; 
+                min-width: 140px;
+            }
+            .dropdown-item { 
+                padding: 0.5rem 0.75rem; 
+            }
+            .sidebar-brand { padding: 1rem; }
+            .sidebar-brand h5 { font-size: 1rem; }
+            .sidebar-menu a { padding: 0.75rem 1rem; font-size: 0.875rem; }
+            .school-logo { width: 40px; height: 40px; }
+            .text-white.fw-bold { font-size: 0.75rem; }
+            .mobile-toggle { 
+                top: 0.75rem; 
+                left: 0.75rem; 
+                padding: 0.5rem;
+                font-size: 1.1rem;
+            }
+            .main-content { padding: 3.5rem 0.75rem 0.75rem; }
+            .toast-notification { 
+                right: 0.5rem; 
+                left: 0.5rem; 
+                min-width: auto;
+            }
         }
         
         .animate-fade-in { animation: fadeIn 0.3s ease; }
@@ -1079,6 +1139,16 @@ if (isset($_GET['edit'])) {
             document.querySelector('.sidebar').classList.toggle('show');
             document.querySelector('.overlay').classList.toggle('show');
         }
+        
+        // Close sidebar when clicking a link on mobile
+        document.querySelectorAll('.sidebar a').forEach(function(link) {
+            link.addEventListener('click', function() {
+                if (window.innerWidth <= 992) {
+                    document.querySelector('.sidebar').classList.remove('show');
+                    document.querySelector('.overlay').classList.remove('show');
+                }
+            });
+        });
         
         function copyLink(id) {
             var copyText = document.getElementById("link" + id);

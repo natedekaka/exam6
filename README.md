@@ -7,7 +7,6 @@ Aplikasi ujian online berbasis PHP dan MySQL untuk sekolah dengan fitur keamanan
 ### Admin
 - Manajemen ujian (CRUD) dengan pengaturan keamanan
 - Bank soal (tambah/edit/hapus soal dengan gambar)
-- Import soal dari DOCX
 - Rekap nilai dengan ekspor Excel
 - Profil sekolah (nama, logo, warna tema)
 - Pengaturan keamanan ujian:
@@ -55,12 +54,12 @@ exam6/
 │   └── init_sekolah.php   # Konfigurasi sekolah
 ├── vendor/               # Library (Bootstrap, Bootstrap Icons)
 ├── uploads/             # File upload (logo, gambar soal)
+├── migrations/            # Database migrations
 ├── backup_db/           # Database backup
 ├── index.php            # Landing page
 ├── ujian.php            # Halaman ujian siswa
 ├── review.php           # Review jawaban
 ├── riwayat.php          # Riwayat nilai
-├── upgrade_all.sql      # Upgrade database untuk fitur baru
 └── docker-compose.yml   # Konfigurasi Docker
 ```
 
@@ -89,8 +88,7 @@ podman-compose up -d
      - Database: `ujian_online`
 
 4. Import database melalui phpMyAdmin:
-   - Untuk fresh install: `backup_db/ujian_online.sql`
-   - Untuk upgrade: `upgrade_all.sql`
+   - Database: `backup_db/ujian_online.sql`
 
 5. Login admin:
    - Username: `admin`
@@ -109,8 +107,7 @@ CREATE DATABASE ujian_online CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
 3. Import database melalui phpMyAdmin:
-   - Untuk fresh install: `backup_db/ujian_online.sql`
-   - Untuk upgrade: `upgrade_all.sql`
+   - Database: `backup_db/ujian_online.sql`
 
 4. Konfigurasi database di `config/database.php`:
 ```php
