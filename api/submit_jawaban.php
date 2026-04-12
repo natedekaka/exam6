@@ -22,19 +22,54 @@ function validateUniqueAttempt($conn, $id_ujian, $nis) {
     $stmt->bind_param("is", $id_ujian, $nis);
     $stmt->execute();
     $result = $stmt->get_result();
-    $exists = $result->num_rows > 0;
+    $has_completed = $result->num_rows > 0;
     $stmt->close();
-    return !$exists;
+    
+    if ($has_completed) {
+        $stmt = $conn->prepare("SELECT id FROM izin_remedi WHERE id_ujian = ? AND nis = ? LIMIT 1");
+        $stmt->bind_param("is", $id_ujian, $nis);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $has_remedi_permission = $result->num_rows > 0;
+        $stmt->close();
+        
+        return $has_remedi_permission;
+    }
+    
+    return true;
 }
 
 function validateTemporaryUnique($conn, $id_ujian, $nis) {
-    $stmt = $conn->prepare("SELECT id FROM jawaban_sementara WHERE id_ujian = ? AND nis = ? LIMIT 1");
+    $stmt = $conn->prepare("SELECT id FROM jawaban_sEMENTARA WHERE id_ujian = ? AND nis = ? LIMIT 1");
     $stmt->bind_param("is", $id_ujian, $nis);
     $stmt->execute();
     $result = $stmt->get_result();
-    $exists = $result->num_rows > 0;
+    $has_temporary = $result->num_rows > 0;
     $stmt->close();
-    return !$exists;
+    
+    if ($has_temporary) {
+        return true;
+    }
+    
+    $stmt = $conn->prepare("SELECT id FROM hasil_ujian WHERE id_ujian = ? AND nis = ? LIMIT 1");
+    $stmt->bind_param("is", $id_ujian, $nis);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $has_completed = $result->num_rows > 0;
+    $stmt->close();
+    
+    if ($has_completed) {
+        $stmt = $conn->prepare("SELECT id FROM izin_remedi WHERE id_ujian = ? AND nis = ? LIMIT 1");
+        $stmt->bind_param("is", $id_ujian, $nis);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $has_remedi_permission = $result->num_rows > 0;
+        $stmt->close();
+        
+        return $has_remedi_permission;
+    }
+    
+    return true;
 }
 
 function verifyCSRF($token, $expected) {

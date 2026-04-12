@@ -23,24 +23,74 @@ $message_type = '';
 $ujian_list = $conn->query("SELECT id, judul_ujian FROM ujian ORDER BY judul_ujian");
 $selected_ujian = isset($_GET['ujian']) ? (int)$_GET['ujian'] : 0;
 
+$filter_kelas = isset($_GET['kelas']) ? trim($_GET['kelas']) : '';
+$filter_skor_min = isset($_GET['skor_min']) ? (int)$_GET['skor_min'] : 0;
+$sort_by = isset($_GET['sort']) ? $_GET['sort'] : 'skor_desc';
+
+$kelas_list = [];
+
+$izin_remedi_list = [];
+$stmt = $conn->prepare("SELECT nis FROM izin_remedi WHERE id_ujian = ?");
+$stmt->bind_param("i", $selected_ujian);
+$stmt->execute();
+$result = $stmt->get_result();
+while ($row = $result->fetch_assoc()) {
+    $izin_remedi_list[] = $row['nis'];
+}
+$stmt->close();
+
 $hasil_list = [];
+$all_results = [];
 $stats = ['total' => 0, 'rata' => 0, 'tertinggi' => 0, 'terendah' => 0];
 if ($selected_ujian > 0) {
-    $stmt = $conn->prepare("SELECT h.*, u.judul_ujian FROM hasil_ujian h JOIN ujian u ON h.id_ujian = u.id WHERE h.id_ujian = ? ORDER BY h.total_skor DESC");
+    $order_by = 'h.total_skor DESC';
+    switch ($sort_by) {
+        case 'skor_asc': $order_by = 'h.total_skor ASC'; break;
+        case 'nama_asc': $order_by = 'h.nama ASC'; break;
+        case 'nama_desc': $order_by = 'h.nama DESC'; break;
+        case 'nis_asc': $order_by = 'h.nis ASC'; break;
+        case 'nis_desc': $order_by = 'h.nis DESC'; break;
+        case 'waktu_asc': $order_by = 'h.waktu_submit ASC'; break;
+        case 'waktu_desc': $order_by = 'h.waktu_submit DESC'; break;
+        case 'kelas_asc': $order_by = 'h.kelas ASC, h.nama ASC'; break;
+    }
+    
+    $sql = "SELECT h.*, u.judul_ujian FROM hasil_ujian h JOIN ujian u ON h.id_ujian = u.id WHERE h.id_ujian = ?";
+    if ($filter_skor_min > 0) {
+        $sql .= " AND h.total_skor >= " . (int)$filter_skor_min;
+    }
+    $sql .= " ORDER BY " . $order_by;
+    
+    $stmt = $conn->prepare($sql);
     $stmt->bind_param("i", $selected_ujian);
     $stmt->execute();
     $result = $stmt->get_result();
     while ($row = $result->fetch_assoc()) {
-        $hasil_list[] = $row;
+        $row['has_remedi'] = in_array($row['nis'], $izin_remedi_list);
+        $all_results[] = $row;
     }
     $stmt->close();
     
-    if (count($hasil_list) > 0) {
-        $scores = array_column($hasil_list, 'total_skor');
-        $stats['total'] = count($hasil_list);
+    if (count($all_results) > 0) {
+        $scores = array_column($all_results, 'total_skor');
+        $stats['total'] = count($all_results);
         $stats['rata'] = round(array_sum($scores) / count($scores), 1);
         $stats['tertinggi'] = max($scores);
         $stats['terendah'] = min($scores);
+        
+        $kelas_temp = array_unique(array_column($all_results, 'kelas'));
+        sort($kelas_temp);
+        $kelas_list = array_values($kelas_temp);
+    }
+    
+    if ($filter_kelas !== '') {
+        foreach ($all_results as $row) {
+            if ($row['kelas'] === $filter_kelas) {
+                $hasil_list[] = $row;
+            }
+        }
+    } else {
+        $hasil_list = $all_results;
     }
 }
 
@@ -54,6 +104,106 @@ if (isset($_GET['hapus'])) {
         exit;
     }
     $stmt->close();
+}
+
+if (isset($_POST['give_remedi']) && isset($_POST['id_hasil']) && isset($_POST['id_ujian'])) {
+    $id_hasil = (int)$_POST['id_hasil'];
+    $id_ujian = (int)$_POST['id_ujian'];
+    
+    $stmt = $conn->prepare("SELECT nis, nama, kelas FROM hasil_ujian WHERE id = ?");
+    $stmt->bind_param("i", $id_hasil);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $siswa = $result->fetch_assoc();
+    $stmt->close();
+    
+    if ($siswa) {
+        $stmt = $conn->prepare("INSERT INTO izin_remedi (id_ujian, nis, nama, kelas, diberikan_oleh) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE nama = VALUES(nama), kelas = VALUES(kelas), diberikan_oleh = VALUES(diberikan_oleh)");
+        $admin_user = $_SESSION['admin_username'];
+        $stmt->bind_param("issss", $id_ujian, $siswa['nis'], $siswa['nama'], $siswa['kelas'], $admin_user);
+        if ($stmt->execute()) {
+            header('Location: ?ujian=' . $id_ujian . '&remedi=1');
+            exit;
+        }
+        $stmt->close();
+    }
+}
+
+if (isset($_POST['remove_remedi']) && isset($_POST['id_hasil']) && isset($_POST['id_ujian'])) {
+    $id_hasil = (int)$_POST['id_hasil'];
+    $id_ujian = (int)$_POST['id_ujian'];
+    
+    $stmt = $conn->prepare("SELECT nis, nama FROM hasil_ujian WHERE id = ?");
+    $stmt->bind_param("i", $id_hasil);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $siswa = $result->fetch_assoc();
+    $stmt->close();
+    
+    if ($siswa) {
+        $stmt = $conn->prepare("DELETE FROM izin_remedi WHERE id_ujian = ? AND nis = ?");
+        $stmt->bind_param("is", $id_ujian, $siswa['nis']);
+        if ($stmt->execute()) {
+            header('Location: ?ujian=' . $id_ujian . '&remedi_removed=1');
+            exit;
+        }
+        $stmt->close();
+    }
+}
+
+if (isset($_POST['batch_remedi']) && isset($_POST['selected_ids']) && isset($_POST['id_ujian_batch'])) {
+    $selected_ids = $_POST['selected_ids'];
+    $id_ujian = (int)$_POST['id_ujian_batch'];
+    $admin_user = $_SESSION['admin_username'];
+    
+    $count = 0;
+    foreach ($selected_ids as $id_hasil) {
+        $id = (int)$id_hasil;
+        $stmt = $conn->prepare("SELECT nis, nama, kelas FROM hasil_ujian WHERE id = ?");
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $siswa = $result->fetch_assoc();
+        $stmt->close();
+        
+        if ($siswa) {
+            $stmt = $conn->prepare("INSERT INTO izin_remedi (id_ujian, nis, nama, kelas, diberikan_oleh) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE nama = VALUES(nama), kelas = VALUES(kelas), diberikan_oleh = VALUES(diberikan_oleh)");
+            $stmt->bind_param("issss", $id_ujian, $siswa['nis'], $siswa['nama'], $siswa['kelas'], $admin_user);
+            $stmt->execute();
+            $stmt->close();
+            $count++;
+        }
+    }
+    
+    header('Location: ?ujian=' . $id_ujian . '&batch_remedi=' . $count);
+    exit;
+}
+
+if (isset($_POST['batch_remove_remedi']) && isset($_POST['selected_ids']) && isset($_POST['id_ujian_batch'])) {
+    $selected_ids = $_POST['selected_ids'];
+    $id_ujian = (int)$_POST['id_ujian_batch'];
+    
+    $count = 0;
+    foreach ($selected_ids as $id_hasil) {
+        $id = (int)$id_hasil;
+        $stmt = $conn->prepare("SELECT nis FROM hasil_ujian WHERE id = ?");
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $siswa = $result->fetch_assoc();
+        $stmt->close();
+        
+        if ($siswa) {
+            $stmt = $conn->prepare("DELETE FROM izin_remedi WHERE id_ujian = ? AND nis = ?");
+            $stmt->bind_param("is", $id_ujian, $siswa['nis']);
+            $stmt->execute();
+            $stmt->close();
+            $count++;
+        }
+    }
+    
+    header('Location: ?ujian=' . $id_ujian . '&batch_removed=' . $count);
+    exit;
 }
 ?>
 
@@ -292,6 +442,58 @@ if (isset($_GET['hapus'])) {
             background: #fee2e2;
             color: #dc2626 !important;
         }
+        
+        .action-btn-remedi {
+            background: #e0e7ff;
+            color: #4f46e5 !important;
+        }
+        
+        .action-btn-remedi:hover {
+            background: #c7d2fe;
+            color: #4338ca !important;
+        }
+        
+        .action-btn-remedi.active {
+            background: #dcfce7;
+            color: #16a34a !important;
+        }
+        
+        .action-btn-remedi.active:hover {
+            background: #bbf7d0;
+            color: #15803d !important;
+        }
+        
+        .search-box {
+            position: relative;
+        }
+        
+        .search-box .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            font-size: 0.9rem;
+        }
+        
+        .search-box input {
+            padding-left: 36px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            width: 220px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s ease;
+        }
+        
+        .search-box input:focus {
+            width: 280px;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+        
+        .table tbody tr.hidden {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -318,6 +520,9 @@ if (isset($_GET['hapus'])) {
             <a href="tambah_soal.php"><i class="bi bi-question-circle-fill"></i> Bank Soal</a>
             <a href="rekap_nilai.php" class="active"><i class="bi bi-bar-chart-fill"></i> Rekap Nilai</a>
             <a href="profil_sekolah.php"><i class="bi bi-building"></i> Profil Sekolah</a>
+            <?php if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'super_admin'): ?>
+            <a href="manage_users.php"><i class="bi bi-people-fill"></i> Kelola Admin</a>
+            <?php endif; ?>
             <a href="logout.php" class="text-warning mt-3"><i class="bi bi-box-arrow-right"></i> Logout (<?= htmlspecialchars($_SESSION['admin_username']) ?>)</a>
         </div>
     </div>
@@ -393,17 +598,64 @@ if (isset($_GET['hapus'])) {
         </div>
         <?php endif; ?>
         
-        <div class="card animate-fade-in">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-people me-2"></i>Hasil Ujian</span>
-                <span class="badge bg-primary"><?= $stats['total'] ?> peserta</span>
+        <form method="GET" id="filterForm">
+            <input type="hidden" name="ujian" value="<?= $selected_ujian ?>">
+            <div class="card animate-fade-in mt-3">
+            <div class="card-header">
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-auto">
+                        <span><i class="bi bi-people me-2"></i>Hasil Ujian</span>
+                    </div>
+                    <div class="col-md-auto">
+                        <select name="kelas" class="form-select form-select-sm" onchange="document.getElementById('filterForm').submit()">
+                            <option value="">Semua Kelas</option>
+                            <?php foreach ($kelas_list as $k): ?>
+                            <option value="<?= htmlspecialchars($k) ?>" <?= $filter_kelas === $k ? 'selected' : '' ?>><?= htmlspecialchars($k) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-auto">
+                        <select name="skor_min" class="form-select form-select-sm" onchange="document.getElementById('filterForm').submit()">
+                            <option value="0" <?php if ($filter_skor_min == 0) echo 'selected'; ?>>Semua Skor</option>
+                            <option value="70" <?php if ($filter_skor_min == 70) echo 'selected'; ?>>Skor &gt;= 70</option>
+                            <option value="75" <?php if ($filter_skor_min == 75) echo 'selected'; ?>>Skor &gt;= 75</option>
+                            <option value="80" <?php if ($filter_skor_min == 80) echo 'selected'; ?>>Skor &gt;= 80</option>
+                            <option value="85" <?php if ($filter_skor_min == 85) echo 'selected'; ?>>Skor &gt;= 85</option>
+                        </select>
+                    </div>
+                    <div class="col-md-auto">
+                        <select name="sort" class="form-select form-select-sm" onchange="document.getElementById('filterForm').submit()">
+                            <option value="skor_desc" <?php if ($sort_by == 'skor_desc') echo 'selected'; ?>>Skor Tertinggi</option>
+                            <option value="skor_asc" <?php if ($sort_by == 'skor_asc') echo 'selected'; ?>>Skor Terendah</option>
+                            <option value="nama_asc" <?php if ($sort_by == 'nama_asc') echo 'selected'; ?>>Nama A-Z</option>
+                            <option value="nama_desc" <?php if ($sort_by == 'nama_desc') echo 'selected'; ?>>Nama Z-A</option>
+                            <option value="kelas_asc" <?php if ($sort_by == 'kelas_asc') echo 'selected'; ?>>Kelas</option>
+                            <option value="waktu_desc" <?php if ($sort_by == 'waktu_desc') echo 'selected'; ?>>Terbaru</option>
+                            <option value="waktu_asc" <?php if ($sort_by == 'waktu_asc') echo 'selected'; ?>>Terlama</option>
+                        </select>
+                    </div>
+                    <div class="col-md-auto">
+                        <div class="search-box">
+                            <i class="bi bi-search search-icon"></i>
+                            <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Cari...">
+                        </div>
+                    </div>
+                    <div class="col-md-auto ms-auto">
+                        <span class="badge bg-primary"><?= $stats['total'] ?> peserta</span>
+                    </div>
+                </div>
             </div>
             <div class="card-body scrollable-table">
                 <?php if ($stats['total'] > 0): ?>
+                <form method="POST" id="batchForm">
+                    <input type="hidden" name="id_ujian_batch" value="<?= $selected_ujian ?>">
                 <div class="table-responsive">
                     <table class="table table-hover mb-0">
                         <thead>
                             <tr>
+                                <th class="text-center" style="width: 50px;">
+                                    <input type="checkbox" id="checkAll">
+                                </th>
                                 <th class="text-center" style="width: 50px;">No</th>
                                 <th>NIS</th>
                                 <th>Nama</th>
@@ -419,6 +671,9 @@ if (isset($_GET['hapus'])) {
                             foreach ($hasil_list as $hasil): 
                             ?>
                             <tr>
+                                <td class="text-center">
+                                    <input type="checkbox" name="selected_ids[]" value="<?= $hasil['id'] ?>" class="checkbox-item">
+                                </td>
                                 <td class="text-center"><?= $no++ ?></td>
                                 <td><?= htmlspecialchars($hasil['nis']) ?></td>
                                 <td class="fw-semibold"><?= htmlspecialchars($hasil['nama']) ?></td>
@@ -431,6 +686,35 @@ if (isset($_GET['hapus'])) {
                                 <td class="text-center text-muted"><?= date('d/m/Y H:i', strtotime($hasil['waktu_submit'])) ?></td>
                                 <td class="text-center">
                                     <div class="action-buttons">
+                                        <form method="post" style="display: inline;">
+                                            <input type="hidden" name="id_hasil" value="<?= $hasil['id'] ?>">
+                                            <input type="hidden" name="id_ujian" value="<?= $selected_ujian ?>">
+                                            <?php if ($hasil['has_remedi']): ?>
+                                            <input type="hidden" name="remove_remedi" value="1">
+                                            <button type="submit" 
+                                                class="action-btn-group <?= $hasil['has_remedi'] ? 'active' : '' ?>" 
+                                                data-bs-toggle="tooltip" 
+                                                data-bs-placement="top" 
+                                                title="Cabut Izin Remedi">
+                                                <span class="action-btn action-btn-remedi active">
+                                                    <i class="bi bi-arrow-repeat" style="font-size: 1rem;"></i>
+                                                </span>
+                                                <span class="action-btn-label">Remedi</span>
+                                            </button>
+                                            <?php else: ?>
+                                            <input type="hidden" name="give_remedi" value="1">
+                                            <button type="submit" 
+                                                class="action-btn-group" 
+                                                data-bs-toggle="tooltip" 
+                                                data-bs-placement="top" 
+                                                title="Berikan Izin Remedi">
+                                                <span class="action-btn action-btn-remedi">
+                                                    <i class="bi bi-arrow-repeat" style="font-size: 1rem;"></i>
+                                                </span>
+                                                <span class="action-btn-label">Remedi</span>
+                                            </button>
+                                            <?php endif; ?>
+                                        </form>
                                         <button type="button" 
                                             class="action-btn-group btn-hapus-hasil" 
                                             data-id="<?= $hasil['id'] ?>" 
@@ -450,6 +734,19 @@ if (isset($_GET['hapus'])) {
                         </tbody>
                     </table>
                 </div>
+                <div class="mt-2 d-flex gap-2 align-items-center">
+                    <span class="text-muted small">Pilih siswa:</span>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnSelectAll">Pilih Semua</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnDeselectAll">Batal Pilih</button>
+                    <span class="text-muted small">dengan:</span>
+                    <button type="submit" name="batch_remedi" class="btn btn-sm btn-success" onclick="return confirmBatch('remedi')">
+                        <i class="bi bi-arrow-repeat me-1"></i> Beri Remedi
+                    </button>
+                    <button type="submit" name="batch_remove_remedi" class="btn btn-sm btn-outline-danger" onclick="return confirmBatch('remove')">
+                        <i class="bi bi-x-circle me-1"></i> Cabut Remedi
+                    </button>
+                </div>
+                </form>
                 <?php else: ?>
                 <div class="text-center py-5">
                     <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
@@ -517,6 +814,22 @@ if (isset($_GET['hapus'])) {
                 showToast('Data berhasil dihapus!', 'success');
                 window.history.replaceState({}, document.title, window.location.pathname + '?ujian=' + urlParams.get('ujian'));
             }
+            if (urlParams.has('remedi')) {
+                showToast('Izin remedi berhasil diberikan!', 'success');
+                window.history.replaceState({}, document.title, window.location.pathname + '?ujian=' + urlParams.get('ujian'));
+            }
+            if (urlParams.has('remedi_removed')) {
+                showToast('Izin remedi berhasil dicabut!', 'success');
+                window.history.replaceState({}, document.title, window.location.pathname + '?ujian=' + urlParams.get('ujian'));
+            }
+            if (urlParams.has('batch_remedi')) {
+                showToast('Izin remedi berhasil diberikan kepada ' + urlParams.get('batch_remedi') + ' siswa!', 'success');
+                window.history.replaceState({}, document.title, window.location.pathname + '?ujian=' + urlParams.get('ujian'));
+            }
+            if (urlParams.has('batch_removed')) {
+                showToast('Izin remedi berhasil dicabut dari ' + urlParams.get('batch_removed') + ' siswa!', 'success');
+                window.history.replaceState({}, document.title, window.location.pathname + '?ujian=' + urlParams.get('ujian'));
+            }
             
             const deleteModalEl = document.getElementById('deleteModal');
             if (deleteModalEl) {
@@ -541,7 +854,57 @@ if (isset($_GET['hapus'])) {
                     }, 300);
                 });
             }
+            
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    const query = this.value.toLowerCase().trim();
+                    const rows = document.querySelectorAll('table tbody tr');
+                    rows.forEach(function(row) {
+                        const nis = row.cells[2]?.textContent.toLowerCase() || '';
+                        const nama = row.cells[3]?.textContent.toLowerCase() || '';
+                        const kelas = row.cells[4]?.textContent.toLowerCase() || '';
+                        if (query === '' || nis.includes(query) || nama.includes(query) || kelas.includes(query)) {
+                            row.classList.remove('hidden');
+                        } else {
+                            row.classList.add('hidden');
+                        }
+                    });
+                });
+            }
+            
+            const checkAll = document.getElementById('checkAll');
+            if (checkAll) {
+                checkAll.addEventListener('change', function() {
+                    document.querySelectorAll('.checkbox-item').forEach(cb => cb.checked = this.checked);
+                });
+            }
+            
+            const btnSelectAll = document.getElementById('btnSelectAll');
+            if (btnSelectAll) {
+                btnSelectAll.addEventListener('click', function() {
+                    document.querySelectorAll('.checkbox-item').forEach(cb => cb.checked = true);
+                    document.getElementById('checkAll').checked = true;
+                });
+            }
+            
+            const btnDeselectAll = document.getElementById('btnDeselectAll');
+            if (btnDeselectAll) {
+                btnDeselectAll.addEventListener('click', function() {
+                    document.querySelectorAll('.checkbox-item').forEach(cb => cb.checked = false);
+                    document.getElementById('checkAll').checked = false;
+                });
+            }
         });
+        
+        function confirmBatch(action) {
+            const checked = document.querySelectorAll('.checkbox-item:checked');
+            if (checked.length === 0) {
+                alert('Pilih siswa terlebih dahulu!');
+                return false;
+            }
+            return confirm('Apakah Anda yakin ingin ' + (action === 'remedi' ? 'memberi izin remedi' : 'mencabut izin remedi') + ' kepada ' + checked.length + ' siswa?');
+        }
     </script>
     
     <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">

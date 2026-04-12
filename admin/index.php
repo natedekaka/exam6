@@ -171,7 +171,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_ujian'])) {
                     $fields .= ", waktu_tersedia = ?, acak_soal = ?";
                     $params[] = $waktu_tersedia;
                     $params[] = $acak_soal;
-                    $types .= "ii";
+                    $types .= "is";
                 }
                 if ($has_acak_opsi) {
                     $fields .= ", acak_opsi = ?";
@@ -230,7 +230,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_ujian'])) {
                 $values .= ", ?, ?";
                 $params[] = $waktu_tersedia;
                 $params[] = $acak_soal;
-                $types .= "ii";
+                $types .= "is";
             }
             if ($has_acak_opsi) {
                 $fields .= ", acak_opsi";
@@ -350,7 +350,7 @@ if (isset($_GET['edit'])) {
             position: fixed;
             left: 0;
             top: 0;
-            z-index: 1000;
+            z-index: 100;
             transition: transform 0.3s ease;
         }
         
@@ -383,7 +383,7 @@ if (isset($_GET['edit'])) {
         .sidebar a:hover { background: rgba(255,255,255,0.05); color: #fff; }
         .sidebar a.active { background: rgba(79, 70, 229, 0.2); color: #fff; border-left-color: var(--primary); }
         
-        .main-content { margin-left: var(--sidebar-width); padding: 2rem; transition: margin-left 0.3s ease; }
+        .main-content { margin-left: var(--sidebar-width); padding: 2rem; transition: margin-left 0.3s ease; width: calc(100% - var(--sidebar-width)); box-sizing: border-box; min-width: 0; z-index: 1; }
         
         .page-header {
             background: #fff;
@@ -404,6 +404,12 @@ if (isset($_GET['edit'])) {
         .card-header { background: #fff; border-bottom: 1px solid var(--border); padding: 1.25rem 1.5rem; font-weight: 600; color: var(--dark); }
         .card-body { padding: 1.5rem; }
         
+        .table-scroll { 
+            overflow-x: auto; 
+            overflow-y: visible;
+            -webkit-overflow-scrolling: touch;
+        }
+        
         .form-control, .form-select {
             border: 1px solid var(--border);
             border-radius: 8px;
@@ -416,12 +422,13 @@ if (isset($_GET['edit'])) {
             box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
         }
         
-        .btn { border-radius: 8px; padding: 0.625rem 1.25rem; font-weight: 500; transition: all 0.2s ease; }
+        .btn { border-radius: 8px; padding: 0.625rem 1.25rem; font-weight: 500; transition: all 0.2s ease; white-space: nowrap; }
         .btn-primary { background: var(--primary); border-color: var(--primary); }
         .btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
         
-        .table thead th { background: #f8fafc; border-bottom: 2px solid var(--border); color: var(--secondary); font-weight: 600; font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.5px; padding: 1rem; }
-        .table tbody td { padding: 1rem; vertical-align: middle; border-bottom: 1px solid var(--border); }
+        .table { table-layout: auto; width: 100%; border-collapse: separate; }
+        .table thead th { background: #f8fafc; border-bottom: 2px solid var(--border); color: var(--secondary); font-weight: 600; font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.5px; padding: 1rem; white-space: nowrap; position: sticky; top: 0; z-index: 10; }
+        .table tbody td { padding: 1rem; vertical-align: middle; border-bottom: 1px solid var(--border); white-space: nowrap; }
         .table tbody tr:hover { background: #f8fafc; }
         
         .badge { font-weight: 500; padding: 0.375rem 0.75rem; border-radius: 6px; font-size: 0.75rem; }
@@ -675,11 +682,15 @@ if (isset($_GET['edit'])) {
             <a href="tambah_soal.php"><i class="bi bi-question-circle-fill"></i> Bank Soal</a>
             <a href="rekap_nilai.php"><i class="bi bi-bar-chart-fill"></i> Rekap Nilai</a>
             <a href="profil_sekolah.php"><i class="bi bi-building"></i> Profil Sekolah</a>
+            <?php if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'super_admin'): ?>
+            <a href="manage_users.php"><i class="bi bi-people-fill"></i> Kelola Admin</a>
+            <?php endif; ?>
             <a href="logout.php" class="text-warning mt-3"><i class="bi bi-box-arrow-right"></i> Logout (<?= htmlspecialchars($_SESSION['admin_username']) ?>)</a>
         </div>
     </div>
 
     <div class="main-content">
+        <div class="container-fluid px-4">
         <div class="page-header animate-fade-in">
             <h3><i class="bi bi-clipboard-data me-2"></i>Manajemen Ujian - SMA Negeri 6 Cimahi</h3>
             <span class="badge bg-primary fs-6"><?= $result->num_rows ?> ujian</span>
@@ -736,49 +747,48 @@ if (isset($_GET['edit'])) {
 
                         <?php if ($has_new_columns): ?>
                         <div class="col-md-3 mb-3">
-                            <label class="form-label fw-semibold">Waktu (menit)</label>
+                            <label class="form-label fw-semibold">Waktu</label>
                             <input type="number" name="waktu_tersedia" class="form-control" 
                                    value="<?= $edit_ujian ? htmlspecialchars($edit_ujian['waktu_tersedia'] ?? 0) : 0 ?>"
-                                   placeholder="0 = tidak terbatas" min="0">
-                            <small class="text-muted">0 = tidak terbatas</small>
+                                   placeholder="0" min="0">
                         </div>
                     </div>
                     
                     <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label fw-semibold">Acak Urutan Soal</label>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label fw-semibold">Acak Soal</label>
                             <select name="acak_soal" class="form-select">
                                 <option value="tidak" <?= $edit_ujian && ($edit_ujian['acak_soal'] ?? 'tidak') === 'tidak' ? 'selected' : '' ?>>Tidak</option>
-                                <option value="ya" <?= $edit_ujian && ($edit_ujian['acak_soal'] ?? 'tidak') === 'ya' ? 'selected' : '' ?>>Ya - Acak soal</option>
+                                <option value="ya" <?= $edit_ujian && ($edit_ujian['acak_soal'] ?? 'tidak') === 'ya' ? 'selected' : '' ?>>Ya</option>
                             </select>
                         </div>
 
                         <?php if ($has_acak_opsi): ?>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label fw-semibold">Acak Opsi Jawaban</label>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label fw-semibold">Acak Opsi</label>
                             <select name="acak_opsi" class="form-select">
                                 <option value="tidak" <?= $edit_ujian && ($edit_ujian['acak_opsi'] ?? 'tidak') === 'tidak' ? 'selected' : '' ?>>Tidak</option>
-                                <option value="ya" <?= $edit_ujian && ($edit_ujian['acak_opsi'] ?? 'tidak') === 'ya' ? 'selected' : '' ?>>Ya - Acak opsi A/B/C/D/E</option>
+                                <option value="ya" <?= $edit_ujian && ($edit_ujian['acak_opsi'] ?? 'tidak') === 'ya' ? 'selected' : '' ?>>Ya</option>
                             </select>
                         </div>
                         <?php endif; ?>
 
                         <?php if ($has_tampilkan_review): ?>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label fw-semibold">Tampilkan Review</label>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label fw-semibold">Review</label>
                             <select name="tampilkan_review" class="form-select">
                                 <option value="tidak" <?= $edit_ujian && ($edit_ujian['tampilkan_review'] ?? 'tidak') === 'tidak' ? 'selected' : '' ?>>Tidak</option>
-                                <option value="ya" <?= $edit_ujian && ($edit_ujian['tampilkan_review'] ?? 'tidak') === 'ya' ? 'selected' : '' ?>>Ya - Tampilkan setelah submit</option>
+                                <option value="ya" <?= $edit_ujian && ($edit_ujian['tampilkan_review'] ?? 'tidak') === 'ya' ? 'selected' : '' ?>>Ya</option>
                             </select>
                         </div>
                         <?php endif; ?>
 
                         <?php if ($has_tampilkan_skor): ?>
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-3 mb-3">
                             <label class="form-label fw-semibold">Tampilkan Skor</label>
                             <select name="tampilkan_skor" class="form-select">
-                                <option value="ya" <?= $edit_ujian && ($edit_ujian['tampilkan_skor'] ?? 'ya') === 'ya' ? 'selected' : '' ?>>Ya - Tampilkan skor setelah submit</option>
-                                <option value="tidak" <?= $edit_ujian && ($edit_ujian['tampilkan_skor'] ?? 'ya') === 'tidak' ? 'selected' : '' ?>>Tidak - Sembunyikan skor</option>
+                                <option value="ya" <?= $edit_ujian && ($edit_ujian['tampilkan_skor'] ?? 'ya') === 'ya' ? 'selected' : '' ?>>Ya</option>
+                                <option value="tidak" <?= $edit_ujian && ($edit_ujian['tampilkan_skor'] ?? 'ya') === 'tidak' ? 'selected' : '' ?>>Tidak</option>
                             </select>
                         </div>
                         <?php endif; ?>
@@ -788,7 +798,7 @@ if (isset($_GET['edit'])) {
                     <?php if ($has_kode_ujian || $has_allow_ip || $has_browser_lock || $has_device_check): ?>
                     <div class="row mt-3">
                         <div class="col-12">
-                            <h6 class="fw-bold text-primary"><i class="bi bi-shield-check me-2"></i>Pengaturan Keamanan</h6>
+                            <h6 class="fw-bold text-primary"><i class="bi bi-shield-lock me-2"></i>Keamanan</h6>
                         </div>
                     </div>
                     <hr>
@@ -796,21 +806,19 @@ if (isset($_GET['edit'])) {
                     <div class="row">
                         <?php if ($has_kode_ujian): ?>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-semibold">Kode Ujian (Exam Code)</label>
+                            <label class="form-label fw-semibold">Kode Ujian</label>
                             <input type="text" name="kode_ujian" class="form-control" 
                                    value="<?= $edit_ujian ? htmlspecialchars($edit_ujian['kode_ujian'] ?? '') : '' ?>"
-                                   placeholder="Kosongkan jika tidak menggunakan kode">
-                            <small class="text-muted">Siswa harus memasukkan kode ini untuk mengakses ujian</small>
+                                   placeholder="Opsional">
                         </div>
                         <?php endif; ?>
                         
                         <?php if ($has_allow_ip): ?>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-semibold">Batasan IP Address</label>
+                            <label class="form-label fw-semibold">Batasan IP</label>
                             <input type="text" name="allow_ip" class="form-control" 
                                    value="<?= $edit_ujian && !empty($edit_ujian['allow_ip']) ? htmlspecialchars(implode(', ', json_decode($edit_ujian['allow_ip'] ?? '[]', true) ?: [])) : '' ?>"
-                                   placeholder="192.168.1.1, 10.0.0.1">
-                            <small class="text-muted">Pisahkan dengan koma. Kosongkan jika tidak dibatasi</small>
+                                   placeholder="Contoh: 192.168.1.1">
                         </div>
                         <?php endif; ?>
                     </div>
@@ -818,27 +826,26 @@ if (isset($_GET['edit'])) {
                     <div class="row">
                         <?php if ($has_browser_lock): ?>
                         <div class="col-md-4 mb-3">
-                            <label class="form-label fw-semibold">Aktifkan Browser Lock</label>
+                            <label class="form-label fw-semibold">Browser Lock</label>
                             <select name="enable_browser_lock" class="form-select">
                                 <option value="tidak" <?= $edit_ujian && ($edit_ujian['enable_browser_lock'] ?? 'tidak') === 'tidak' ? 'selected' : '' ?>>Tidak</option>
-                                <option value="ya" <?= $edit_ujian && ($edit_ujian['enable_browser_lock'] ?? 'tidak') === 'ya' ? 'selected' : '' ?>>Ya - Deteksi tab switching</option>
+                                <option value="ya" <?= $edit_ujian && ($edit_ujian['enable_browser_lock'] ?? 'tidak') === 'ya' ? 'selected' : '' ?>>Ya</option>
                             </select>
                         </div>
                         <div class="col-md-4 mb-3">
-                            <label class="form-label fw-semibold">Maksimal Pelanggaran</label>
+                            <label class="form-label fw-semibold">Max Pelanggaran</label>
                             <input type="number" name="max_violations" class="form-control" 
                                    value="<?= $edit_ujian ? (int)($edit_ujian['max_violations'] ?? 3) : 3 ?>"
                                    min="1" max="10">
-                            <small class="text-muted">Jumlah pelanggaran sebelum auto-submit</small>
                         </div>
                         <?php endif; ?>
                         
                         <?php if ($has_device_check): ?>
                         <div class="col-md-4 mb-3">
-                            <label class="form-label fw-semibold">Cek Device Fingerprint</label>
+                            <label class="form-label fw-semibold">Device Check</label>
                             <select name="enable_device_check" class="form-select">
                                 <option value="tidak" <?= $edit_ujian && ($edit_ujian['enable_device_check'] ?? 'tidak') === 'tidak' ? 'selected' : '' ?>>Tidak</option>
-                                <option value="ya" <?= $edit_ujian && ($edit_ujian['enable_device_check'] ?? 'tidak') === 'ya' ? 'selected' : '' ?>>Ya - Deteksi pergantian device</option>
+                                <option value="ya" <?= $edit_ujian && ($edit_ujian['enable_device_check'] ?? 'tidak') === 'ya' ? 'selected' : '' ?>>Ya</option>
                             </select>
                         </div>
                         <?php endif; ?>
@@ -846,15 +853,21 @@ if (isset($_GET['edit'])) {
                     <?php endif; ?>
                     </div>
                     
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Deskripsi</label>
-                        <textarea name="deskripsi" class="form-control" rows="3" 
-                                  placeholder="Masukkan deskripsi ujian..."><?= $edit_ujian ? htmlspecialchars($edit_ujian['deskripsi']) : '' ?></textarea>
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label fw-semibold">Deskripsi</label>
+                            <textarea name="deskripsi" class="form-control" rows="2" 
+                                      placeholder="Opsional"><?= $edit_ujian ? htmlspecialchars($edit_ujian['deskripsi']) : '' ?></textarea>
+                        </div>
                     </div>
                     
-                    <button type="submit" name="simpan_ujian" class="btn btn-primary">
-                        <i class="bi bi-save me-1"></i> <?= $edit_ujian ? 'Perbarui' : 'Simpan' ?>
-                    </button>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <button type="submit" name="simpan_ujian" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i> <?= $edit_ujian ? 'Perbarui' : 'Simpan' ?>
+                            </button>
+                        </div>
+                    </div>
                 </form>
             </div>
         </div>
@@ -866,138 +879,105 @@ if (isset($_GET['edit'])) {
             </div>
             <div class="card-body p-0">
                 <?php if ($result->num_rows > 0): ?>
-                <div class="table-responsive">
+                <div class="table-scroll">
                     <table class="table table-hover mb-0">
                         <thead>
                             <tr>
-                                <th class="text-center" style="width: 50px;">No</th>
+                                <th class="text-center">No</th>
+                                <th class="text-center">ID</th>
                                 <th>Judul</th>
-                                <th class="text-center" style="width: 80px;">Status</th>
+                                <th class="text-center">Status</th>
                                 <?php if ($has_new_columns): ?>
-                                <th class="text-center" style="width: 80px;">Waktu</th>
-                                <th class="text-center" style="width: 80px;">Acak</th>
+                                <th class="text-center">Waktu</th>
+                                <th class="text-center">Acak</th>
                                 <?php if ($has_acak_opsi): ?>
-                                <th class="text-center" style="width: 80px;">Opsi</th>
+                                <th class="text-center">Opsi</th>
                                 <?php endif; ?>
-                                <th class="text-center" style="width: 80px;">Review</th>
+                                <th class="text-center">Review</th>
                                 <?php if ($has_tampilkan_skor): ?>
-                                <th class="text-center" style="width: 80px;">Skor</th>
+                                <th class="text-center">Skor</th>
                                 <?php endif; ?>
                                 <?php endif; ?>
-                                <th class="text-center" style="width: 100px;">Tgl Dibuat</th>
-                                <th style="min-width: 180px;">Link</th>
-                                <th class="text-center" style="width: 150px;">Aksi</th>
+                                <th class="text-center">Tgl</th>
+                                <th class="text-center">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php $no = 1; while ($row = $result->fetch_assoc()): ?>
                             <tr>
                                 <td class="text-center"><?= $no++ ?></td>
+                                <td class="text-center text-muted"><?= $row['id'] ?></td>
                                 <td>
                                     <div class="fw-semibold"><?= htmlspecialchars($row['judul_ujian']) ?></div>
-                                    <small class="text-muted"><?= htmlspecialchars(mb_strimwidth($row['deskripsi'] ?? '', 0, 50, '...')) ?></small>
+                                    <small class="text-muted"><?= htmlspecialchars(mb_strimwidth($row['deskripsi'] ?? '', 0, 60, '...')) ?></small>
                                 </td>
                                 <td class="text-center">
                                     <span class="badge bg-<?= $row['status'] === 'aktif' ? 'success' : 'secondary' ?>">
                                         <?= strtoupper($row['status']) ?>
                                     </span>
                                 </td>
-                                <?php if ($has_new_columns): ?>
+<?php if ($has_new_columns): ?>
                                 <td class="text-center">
                                     <?php if (($row['waktu_tersedia'] ?? 0) > 0): ?>
-                                        <span class="badge bg-info"><?= $row['waktu_tersedia'] ?> menit</span>
+                                    <span class="badge bg-info"><?= $row['waktu_tersedia'] ?> mnt</span>
                                     <?php else: ?>
-                                        <span class="badge bg-secondary">-</span>
+                                    <span class="text-muted">-</span>
                                     <?php endif; ?>
                                 </td>
                                 <td class="text-center">
                                     <?php if (($row['acak_soal'] ?? 'tidak') === 'ya'): ?>
-                                        <span class="badge bg-warning"><i class="bi bi-shuffle"></i></span>
+                                    <span class="badge bg-warning"><i class="bi bi-shuffle"></i></span>
                                     <?php else: ?>
-                                        <span class="text-muted">-</span>
+                                    <span class="text-muted">-</span>
                                     <?php endif; ?>
                                 </td>
                                 <?php if ($has_acak_opsi): ?>
                                 <td class="text-center">
                                     <?php if (($row['acak_opsi'] ?? 'tidak') === 'ya'): ?>
-                                        <span class="badge bg-info"><i class="bi bi-shuffle"></i></span>
+                                    <span class="badge bg-info"><i class="bi bi-shuffle"></i></span>
                                     <?php else: ?>
-                                        <span class="text-muted">-</span>
+                                    <span class="text-muted">-</span>
                                     <?php endif; ?>
                                 </td>
                                 <?php endif; ?>
                                 <td class="text-center">
                                     <?php if (($row['tampilkan_review'] ?? 'tidak') === 'ya'): ?>
-                                        <span class="badge bg-success"><i class="bi bi-check"></i></span>
+                                    <span class="badge bg-success"><i class="bi bi-check"></i></span>
                                     <?php else: ?>
-                                        <span class="text-muted">-</span>
+                                    <span class="text-muted">-</span>
                                     <?php endif; ?>
                                 </td>
                                 <?php if ($has_tampilkan_skor): ?>
                                 <td class="text-center">
                                     <?php if (($row['tampilkan_skor'] ?? 'ya') === 'ya'): ?>
-                                        <span class="badge bg-success"><i class="bi bi-check"></i></span>
+                                    <span class="badge bg-success"><i class="bi bi-check"></i></span>
                                     <?php else: ?>
-                                        <span class="badge bg-secondary"><i class="bi bi-x"></i></span>
+                                    <span class="badge bg-secondary"><i class="bi bi-x"></i></span>
                                     <?php endif; ?>
                                 </td>
                                 <?php endif; ?>
                                 <?php endif; ?>
                                 <td class="text-center text-muted"><?= date('d/m/Y', strtotime($row['tgl_dibuat'])) ?></td>
                                 <td>
-                                    <div class="input-group input-group-sm">
-                                        <input type="text" class="form-control" value="<?= '../ujian.php?id=' . $row['id'] ?>" id="link<?= $row['id'] ?>" readonly>
-                                        <button class="btn btn-outline-secondary" type="button" onclick="copyLink(<?= $row['id'] ?>)" title="Copy Link">
-                                            <i class="bi bi-clipboard"></i>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="bi bi-gear"></i>
                                         </button>
-                                        <a href="../ujian.php?id=<?= $row['id'] ?>" target="_blank" class="btn btn-outline-primary" title="Buka">
-                                            <i class="bi bi-box-arrow-up-right"></i>
-                                        </a>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="action-buttons">
-                                        <a href="?edit=<?= $row['id'] ?>" 
-                                           class="action-btn-group" 
-                                           data-bs-toggle="tooltip" 
-                                           data-bs-placement="top" 
-                                           title="Edit Ujian">
-                                            <span class="action-btn action-btn-edit">
-                                                <i class="bi bi-pencil" style="font-size: 1rem;"></i>
-                                            </span>
-                                            <span class="action-btn-label">Edit</span>
-                                        </a>
-                                        <a href="?toggle=1&id=<?= $row['id'] ?>&status=<?= $row['status'] ?>" 
-                                           class="action-btn-group" 
-                                           data-bs-toggle="tooltip" 
-                                           data-bs-placement="top" 
-                                           title="<?= $row['status'] === 'aktif' ? 'Nonaktifkan' : 'Aktifkan' ?>">
-                                            <span class="action-btn <?= $row['status'] === 'aktif' ? 'action-btn-toggle-on' : 'action-btn-toggle-off' ?>">
-                                                <i class="bi bi-<?= $row['status'] === 'aktif' ? 'toggle-on' : 'toggle-off' ?>" style="font-size: 1rem;"></i>
-                                            </span>
-                                            <span class="action-btn-label"><?= $row['status'] === 'aktif' ? 'Aktif' : 'Nonaktif' ?></span>
-                                        </a>
-                                        <a href="tambah_soal.php?ujian=<?= $row['id'] ?>" 
-                                           class="action-btn-group" 
-                                           data-bs-toggle="tooltip" 
-                                           data-bs-placement="top" 
-                                           title="Bank Soal">
-                                            <span class="action-btn action-btn-bank">
-                                                <i class="bi bi-journal-bookmark" style="font-size: 1rem;"></i>
-                                            </span>
-                                            <span class="action-btn-label">Soal</span>
-                                        </a>
-                                        <a href="javascript:void(0)" 
-                                           class="action-btn-group" 
-                                           data-bs-toggle="tooltip" 
-                                           data-bs-placement="top" 
-                                           title="Hapus Ujian"
-                                           onclick="showDeleteModal(<?= $row['id'] ?>, '<?= htmlspecialchars($row['judul_ujian'], ENT_QUOTES) ?>')">
-                                            <span class="action-btn action-btn-delete">
-                                                <i class="bi bi-trash3" style="font-size: 1rem;"></i>
-                                            </span>
-                                            <span class="action-btn-label">Hapus</span>
-                                        </a>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li><a class="dropdown-item" href="?edit=<?= $row['id'] ?>">
+                                                <i class="bi bi-pencil me-2"></i>Edit
+                                            </a></li>
+                                            <li><a class="dropdown-item" href="?id=<?= $row['id'] ?>&status=<?= $row['status'] ?>&toggle=1">
+                                                <i class="bi bi-toggle-<?= $row['status'] === 'aktif' ? 'on' : 'off' ?> me-2"></i><?= $row['status'] === 'aktif' ? 'Nonaktifkan' : 'Aktifkan' ?>
+                                            </a></li>
+                                            <li><a class="dropdown-item" href="tambah_soal.php?ujian=<?= $row['id'] ?>">
+                                                <i class="bi bi-list-ol me-2"></i>Kelola Soal
+                                            </a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item text-danger" href="?hapus=<?= $row['id'] ?>" onclick="return confirm('Yakin hapus?')">
+                                                <i class="bi bi-trash me-2"></i>Hapus
+                                            </a></li>
+                                        </ul>
                                     </div>
                                 </td>
                             </tr>
@@ -1012,6 +992,7 @@ if (isset($_GET['edit'])) {
                 </div>
                 <?php endif; ?>
             </div>
+        </div>
         </div>
     </div>
 

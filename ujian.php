@@ -120,17 +120,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
         }
         
         $detail_jawaban_json = json_encode($detail_jawaban);
+        $submit_success = false;
         
-        $result_cols = $conn->query("SHOW COLUMNS FROM hasil_ujian LIKE 'detail_jawaban'");
-        if ($result_cols && $result_cols->num_rows > 0) {
-            $stmt = $conn->prepare("INSERT INTO hasil_ujian (id_ujian, nis, nama, kelas, total_skor, detail_jawaban) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("isssis", $id_ujian, $nis, $nama, $kelas, $total_skor, $detail_jawaban_json);
-        } else {
-            $stmt = $conn->prepare("INSERT INTO hasil_ujian (id_ujian, nis, nama, kelas, total_skor) VALUES (?, ?, ?, ?, ?)");
-            $stmt->bind_param("isssi", $id_ujian, $nis, $nama, $kelas, $total_skor);
+        try {
+            $conn->begin_transaction();
+            
+            $lock_name = "ujian_submit_{$id_ujian}_{$nis}";
+            $lock_result = $conn->query("SELECT GET_LOCK('$lock_name', 10) AS lock_result");
+            $lock_row = $lock_result->fetch_assoc();
+            
+            if (!$lock_row || $lock_row['lock_result'] != 1) {
+                throw new Exception("Gagal mendapatkan lock. Silakan coba lagi.");
+            }
+            
+            $check = $conn->prepare("SELECT id FROM hasil_ujian WHERE id_ujian = ? AND nis = ? LIMIT 1");
+            $check->bind_param("is", $id_ujian, $nis);
+            $check->execute();
+            $check_result = $check->get_result();
+            
+            if ($check_result->num_rows > 0) {
+                $conn->query("DO RELEASE_LOCK('$lock_name')");
+                $conn->rollback();
+                $message = "Anda sudah submit ujian ini!";
+                $message_type = 'warning';
+            } else {
+                $check->close();
+                
+                if ($detail_jawaban_json) {
+                    $stmt = $conn->prepare("INSERT INTO hasil_ujian (id_ujian, nis, nama, kelas, total_skor, detail_jawaban, submitted_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
+                    $stmt->bind_param("isssis", $id_ujian, $nis, $nama, $kelas, $total_skor, $detail_jawaban_json);
+                } else {
+                    $stmt = $conn->prepare("INSERT INTO hasil_ujian (id_ujian, nis, nama, kelas, total_skor, submitted_at) VALUES (?, ?, ?, ?, ?, NOW())");
+                    $stmt->bind_param("isssi", $id_ujian, $nis, $nama, $kelas, $total_skor);
+                }
+                
+                if (!$stmt->execute()) {
+                    throw new Exception("Gagal menyimpan hasil ujian.");
+                }
+                
+                $conn->query("DO RELEASE_LOCK('$lock_name')");
+                $conn->commit();
+                
+                $submit_success = true;
+            }
+        } catch (Exception $e) {
+            $conn->query("DO RELEASE_LOCK('$lock_name')");
+            $conn->rollback();
+            $message = $e->getMessage();
+            $message_type = 'danger';
         }
         
-        if ($stmt->execute()) {
+        if ($submit_success) {
             ?>
             <!DOCTYPE html>
             <html lang="id">

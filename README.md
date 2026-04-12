@@ -30,6 +30,8 @@ Aplikasi ujian online berbasis PHP dan MySQL untuk sekolah dengan fitur keamanan
 - Pengecekan ganda agar siswa tidak mengerjakan dua kali
 - Auto-submit jika pelanggaran browser melebihi batas
 - Log pelanggaran tab switching
+- Race Condition Protection untuk mencegah double submission saat submit bersamaan
+- Transaksi database dengan locking untuk integritas data
 
 ## Requirements
 
@@ -64,7 +66,7 @@ exam6/
 
 ## Cara Install
 
-### Cara 1: Docker (Recommended)
+### Cara 1: Podman/Docker (Recommended)
 
 1. Clone repository:
 ```bash
@@ -72,22 +74,23 @@ git clone https://github.com/natedekaka/exam6.git
 cd exam6
 ```
 
-2. Jalankan Docker:
+2. Jalankan Podman/Docker:
 ```bash
-docker-compose up -d
+podman-compose up -d
+# atau docker-compose up -d
 ```
 
 3. Buka browser:
-   - **Aplikasi**: http://localhost:8084
-   - **phpMyAdmin**: http://localhost:8083
+   - **Aplikasi**: http://localhost:8024
+   - **phpMyAdmin**: http://localhost:8025
      - Server: `db`
      - Username: `user`
      - Password: `pass123`
      - Database: `ujian_online`
 
 4. Import database melalui phpMyAdmin:
-   -Untuk fresh install: `backup_db/ujian_online.sql`
-   -Untuk upgrade: `upgrade_all.sql`
+   - Untuk fresh install: `backup_db/ujian_online.sql`
+   - Untuk upgrade: `upgrade_all.sql`
 
 5. Login admin:
    - Username: `admin`

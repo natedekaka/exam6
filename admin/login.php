@@ -30,6 +30,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['admin_id'] = $user['id'];
                 $_SESSION['admin_nama'] = $user['nama_lengkap'];
                 $_SESSION['admin_username'] = $user['username'];
+                $_SESSION['admin_role'] = $user['role'] ?? 'admin';
+                
+                $stmt = $conn->prepare("UPDATE admin_users SET last_login = NOW() WHERE id = ?");
+                $stmt->bind_param("i", $user['id']);
+                $stmt->execute();
+                $stmt->close();
                 
                 header('Location: index.php');
                 exit;
