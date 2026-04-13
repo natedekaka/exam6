@@ -27,6 +27,8 @@ $has_kode_ujian = false;
 $has_allow_ip = false;
 $has_browser_lock = false;
 $has_device_check = false;
+$has_timer_per_soal = false;
+$has_show_timer_per_soal = false;
 try {
     $result_cols = $conn->query("SHOW COLUMNS FROM ujian LIKE 'acak_soal'");
     if ($result_cols && $result_cols->num_rows > 0) {
@@ -65,6 +67,14 @@ try {
     if ($result_cols8 && $result_cols8->num_rows > 0) {
         $has_device_check = true;
     }
+    $result_cols9 = $conn->query("SHOW COLUMNS FROM ujian LIKE 'timer_per_soal'");
+    if ($result_cols9 && $result_cols9->num_rows > 0) {
+        $has_timer_per_soal = true;
+    }
+    $result_cols10 = $conn->query("SHOW COLUMNS FROM ujian LIKE 'show_timer_per_soal'");
+    if ($result_cols10 && $result_cols10->num_rows > 0) {
+        $has_show_timer_per_soal = true;
+    }
 } catch (Exception $e) {
     $has_new_columns = false;
     $has_tampilkan_skor = false;
@@ -74,6 +84,8 @@ try {
     $has_allow_ip = false;
     $has_browser_lock = false;
     $has_device_check = false;
+    $has_timer_per_soal = false;
+    $has_show_timer_per_soal = false;
 }
 
 if (isset($_GET['toggle']) && isset($_GET['id'])) {
@@ -144,6 +156,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_ujian'])) {
         $enable_device_check = $_POST['enable_device_check'];
     }
     
+    $timer_per_soal = 0;
+    if ($has_timer_per_soal && isset($_POST['timer_per_soal'])) {
+        $timer_per_soal = max(0, min(3600, (int)$_POST['timer_per_soal']));
+    }
+    
+    $show_timer_per_soal = 'tidak';
+    if ($has_show_timer_per_soal && isset($_POST['show_timer_per_soal']) && ($_POST['show_timer_per_soal'] === 'ya' || $_POST['show_timer_per_soal'] === 'tidak')) {
+        $show_timer_per_soal = $_POST['show_timer_per_soal'];
+    }
+    
     $edit_id = isset($_POST['edit_id']) ? (int)$_POST['edit_id'] : 0;
     $original_updated = $_POST['original_updated'] ?? '';
     
@@ -210,6 +232,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_ujian'])) {
                     $params[] = $enable_device_check;
                     $types .= "s";
                 }
+                if ($has_timer_per_soal) {
+                    $fields .= ", timer_per_soal = ?";
+                    $params[] = $timer_per_soal;
+                    $types .= "i";
+                }
+                if ($has_show_timer_per_soal) {
+                    $fields .= ", show_timer_per_soal = ?";
+                    $params[] = $show_timer_per_soal;
+                    $types .= "s";
+                }
                 
                 $fields .= " WHERE id = ?";
                 $params[] = $edit_id;
@@ -274,6 +306,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_ujian'])) {
                 $fields .= ", enable_device_check";
                 $values .= ", ?";
                 $params[] = $enable_device_check;
+                $types .= "s";
+            }
+            if ($has_timer_per_soal) {
+                $fields .= ", timer_per_soal";
+                $values .= ", ?";
+                $params[] = $timer_per_soal;
+                $types .= "i";
+            }
+            if ($has_show_timer_per_soal) {
+                $fields .= ", show_timer_per_soal";
+                $values .= ", ?";
+                $params[] = $show_timer_per_soal;
                 $types .= "s";
             }
             
@@ -849,6 +893,23 @@ if (isset($_GET['edit'])) {
                             <select name="tampilkan_skor" class="form-select">
                                 <option value="ya" <?= $edit_ujian && ($edit_ujian['tampilkan_skor'] ?? 'ya') === 'ya' ? 'selected' : '' ?>>Ya</option>
                                 <option value="tidak" <?= $edit_ujian && ($edit_ujian['tampilkan_skor'] ?? 'ya') === 'tidak' ? 'selected' : '' ?>>Tidak</option>
+                            </select>
+                        </div>
+                        <?php endif; ?>
+                        
+                        <?php if ($has_timer_per_soal): ?>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label fw-semibold">Timer/Soal (dtk)</label>
+                            <input type="number" name="timer_per_soal" class="form-control" 
+                                   value="<?= $edit_ujian ? (int)($edit_ujian['timer_per_soal'] ?? 0) : 0 ?>"
+                                   placeholder="0 = tidak используется" min="0" max="3600">
+                            <small class="text-muted">0 = неактивно</small>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label fw-semibold">Tampil Timer</label>
+                            <select name="show_timer_per_soal" class="form-select">
+                                <option value="tidak" <?= $edit_ujian && ($edit_ujian['show_timer_per_soal'] ?? 'tidak') === 'tidak' ? 'selected' : '' ?>>Tidak</option>
+                                <option value="ya" <?= $edit_ujian && ($edit_ujian['show_timer_per_soal'] ?? 'tidak') === 'ya' ? 'selected' : '' ?>>Ya</option>
                             </select>
                         </div>
                         <?php endif; ?>

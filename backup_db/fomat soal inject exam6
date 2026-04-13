@@ -1,0 +1,6 @@
+INSERT INTO soal (id_ujian, pertanyaan, opsi_a, opsi_b, opsi_c, opsi_d, opsi_e, kunci_jawaban, poin) VALUES 
+(4, 'Apa singkatan dari HTTP?', 'HyperText Transfer Protocol', 'High Transfer Text Protocol', 'Hyper Transfer Text Protocol', 'HyperText Transmission Protocol', 'High Text Transfer Protocol', 'a', 10),
+(4, 'Apa fungsi utama DNS?', 'Mengubah nama domain menjadi IP address', 'Mengenkripsi data', 'Memproteksi jaringan', 'Mengkompresi file', 'Menyimpan password', 'a', 10),
+(4, 'Port default untuk HTTPS adalah?', '80', '443', '21', '22', '25', 'b', 10),
+(4, 'Apa itu IP Address?', 'Alamat unik komputer dalam jaringan', 'Nama website', 'Password jaringan', 'Jenis router', 'Protocol internet', 'a', 10),
+(4, 'Apa kepanjangan dari HTML?', 'HyperText Markup Language', 'High Text Machine Language', 'Hyper Transfer Markup Language', 'Home Tool Markup Language', 'HyperText Machine Language', 'a', 10);

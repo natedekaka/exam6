@@ -7,6 +7,9 @@ Aplikasi ujian online berbasis PHP dan MySQL untuk sekolah dengan fitur keamanan
 ### Admin
 - Manajemen ujian (CRUD) dengan pengaturan keamanan
 - Bank soal (tambah/edit/hapus soal dengan gambar)
+- Import soal massal dari Excel/CSV
+- Ekspor soal ke PDF
+- Template download untuk import soal
 - Rekap nilai dengan ekspor Excel
 - Profil sekolah (nama, logo, warna tema)
 - Pengaturan keamanan ujian:

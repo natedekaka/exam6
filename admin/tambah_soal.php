@@ -117,6 +117,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_soal'])) {
         $opsi_e = trim($_POST['opsi_e']);
         $kunci = in_array($_POST['kunci_jawaban'], ['a','b','c','d','e']) ? $_POST['kunci_jawaban'] : 'a';
         $poin = max(1, (int)$_POST['poin']);
+        $kategori = isset($_POST['kategori']) ? trim($_POST['kategori']) : null;
+        $timer_soal = isset($_POST['timer_soal']) ? max(0, (int)$_POST['timer_soal']) : 0;
         $edit_id = isset($_POST['edit_id']) ? (int)$_POST['edit_id'] : 0;
         $original_updated = $_POST['original_updated'] ?? '';
         
@@ -218,12 +220,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_soal'])) {
             
             if (empty($message)) {
                 if ($edit_id > 0) {
-                    $stmt = $conn->prepare("UPDATE soal SET pertanyaan=?, gambar_pertanyaan=?, opsi_a=?, gambar_a=?, opsi_b=?, gambar_b=?, opsi_c=?, gambar_c=?, opsi_d=?, gambar_d=?, opsi_e=?, gambar_e=?, kunci_jawaban=?, poin=? WHERE id=?");
-                    $stmt->bind_param("sssssssssssssii", $pertanyaan, $gambar_pertanyaan, $opsi_a, $gambar_a, $opsi_b, $gambar_b, $opsi_c, $gambar_c, $opsi_d, $gambar_d, $opsi_e, $gambar_e, $kunci, $poin, $edit_id);
+                    $stmt = $conn->prepare("UPDATE soal SET pertanyaan=?, gambar_pertanyaan=?, opsi_a=?, gambar_a=?, opsi_b=?, gambar_b=?, opsi_c=?, gambar_c=?, opsi_d=?, gambar_d=?, opsi_e=?, gambar_e=?, kunci_jawaban=?, poin=?, kategori=?, timer_soal=? WHERE id=?");
+                    $stmt->bind_param("sssssssssssssiisi", $pertanyaan, $gambar_pertanyaan, $opsi_a, $gambar_a, $opsi_b, $gambar_b, $opsi_c, $gambar_c, $opsi_d, $gambar_d, $opsi_e, $gambar_e, $kunci, $poin, $kategori, $timer_soal, $edit_id);
                     $message = "Soal berhasil diperbarui!";
                 } else {
-                    $stmt = $conn->prepare("INSERT INTO soal (id_ujian, pertanyaan, gambar_pertanyaan, opsi_a, gambar_a, opsi_b, gambar_b, opsi_c, gambar_c, opsi_d, gambar_d, opsi_e, gambar_e, kunci_jawaban, poin) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                    $stmt->bind_param("isssssssssssssi", $id_ujian, $pertanyaan, $gambar_pertanyaan, $opsi_a, $gambar_a, $opsi_b, $gambar_b, $opsi_c, $gambar_c, $opsi_d, $gambar_d, $opsi_e, $gambar_e, $kunci, $poin);
+                    $stmt = $conn->prepare("INSERT INTO soal (id_ujian, pertanyaan, gambar_pertanyaan, opsi_a, gambar_a, opsi_b, gambar_b, opsi_c, gambar_c, opsi_d, gambar_d, opsi_e, gambar_e, kunci_jawaban, poin, kategori, timer_soal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->bind_param("isssssssssssssiis", $id_ujian, $pertanyaan, $gambar_pertanyaan, $opsi_a, $gambar_a, $opsi_b, $gambar_b, $opsi_c, $gambar_c, $opsi_d, $gambar_d, $opsi_e, $gambar_e, $kunci, $poin, $kategori, $timer_soal);
                     $message = "Soal berhasil ditambahkan!";
                 }
                 
@@ -233,6 +235,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_soal'])) {
                 $stmt->close();
             }
         }
+    }
+}
+
+if (isset($_GET['hapus_gambar']) && isset($_GET['token']) && isset($_GET['edit'])) {
+    if (!validateCsrfToken($_GET['token'])) {
+        $message = 'Token keamanan tidak valid';
+        $message_type = 'danger';
+    } else {
+        $soal_id = (int)$_GET['edit'];
+        $ujian_id = isset($_GET['ujian']) ? (int)$_GET['ujian'] : 0;
+        $gambar_field = $_GET['hapus_gambar'];
+        
+        $allowed_fields = ['gambar_pertanyaan', 'gambar_a', 'gambar_b', 'gambar_c', 'gambar_d', 'gambar_e'];
+        
+        if (in_array($gambar_field, $allowed_fields)) {
+            $stmt = $conn->prepare("SELECT $gambar_field FROM soal WHERE id = ?");
+            $stmt->bind_param("i", $soal_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $soal = $result->fetch_assoc();
+            $stmt->close();
+            
+            if ($soal && $soal[$gambar_field]) {
+                hapusGambar($soal[$gambar_field]);
+                
+                $stmt = $conn->prepare("UPDATE soal SET $gambar_field = NULL WHERE id = ?");
+                $stmt->bind_param("i", $soal_id);
+                $stmt->execute();
+                $stmt->close();
+                
+                $message = "Gambar berhasil dihapus!";
+                $message_type = 'success';
+            }
+        }
+        
+        header('Location: ' . $_SERVER['PHP_SELF'] . '?ujian=' . $ujian_id . '&edit=' . $soal_id);
+        exit;
     }
 }
 
@@ -264,6 +303,74 @@ if (isset($_GET['hapus']) && isset($_GET['token'])) {
                 $message_type = 'success';
             }
             $stmt->close();
+        }
+    }
+}
+
+if (isset($_GET['bulk_delete']) && isset($_GET['ids']) && isset($_GET['token'])) {
+    if (!validateCsrfToken($_GET['token'])) {
+        $message = 'Token keamanan tidak valid';
+        $message_type = 'danger';
+    } else {
+        $ids = explode(',', $_GET['ids']);
+        $ids = array_map('intval', $ids);
+        $ids = array_filter($ids);
+        
+        if (!empty($ids)) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $stmt = $conn->prepare("DELETE FROM soal WHERE id IN ($placeholders)");
+            $stmt->bind_param(str_repeat('i', count($ids)), ...$ids);
+            if ($stmt->execute()) {
+                $message = "Berhasil menghapus " . $stmt->affected_rows . " soal!";
+                $message_type = 'success';
+            }
+            $stmt->close();
+        }
+    }
+}
+
+if (isset($_POST['bulk_update']) && isset($_POST['bulk_ids'])) {
+    if (!validateCsrfToken($_POST['csrf_token'] ?? '')) {
+        $message = 'Token keamanan tidak valid';
+        $message_type = 'danger';
+    } else {
+        $ids = explode(',', $_POST['bulk_ids']);
+        $ids = array_map('intval', $ids);
+        $ids = array_filter($ids);
+        
+        $kategori = isset($_POST['bulk_kategori']) ? trim($_POST['bulk_kategori']) : null;
+        $poin = isset($_POST['bulk_poin']) ? max(1, (int)$_POST['bulk_poin']) : null;
+        
+        if (!empty($ids)) {
+            $updates = [];
+            $params = [];
+            $types = '';
+            
+            if ($kategori !== null && $kategori !== '') {
+                $updates[] = "kategori = ?";
+                $params[] = $kategori;
+                $types .= 's';
+            }
+            if ($poin !== null) {
+                $updates[] = "poin = ?";
+                $params[] = $poin;
+                $types .= 'i';
+            }
+            
+            if (!empty($updates)) {
+                $placeholders = implode(',', array_fill(0, count($ids), '?'));
+                $sql = "UPDATE soal SET " . implode(', ', $updates) . " WHERE id IN ($placeholders)";
+                $params = array_merge($params, $ids);
+                $types .= str_repeat('i', count($ids));
+                
+                $stmt = $conn->prepare($sql);
+                $stmt->bind_param($types, ...$params);
+                if ($stmt->execute()) {
+                    $message = "Berhasil mengupdate " . $stmt->affected_rows . " soal!";
+                    $message_type = 'success';
+                }
+                $stmt->close();
+            }
         }
     }
 }
@@ -987,6 +1094,7 @@ if (isset($_SESSION['import_message'])) {
         <div class="sidebar-menu">
             <a href="index.php"><i class="bi bi-grid-1x2-fill"></i> Manajemen Ujian</a>
             <a href="tambah_soal.php" class="active"><i class="bi bi-question-circle-fill"></i> Bank Soal</a>
+            <a href="import_soal.php"><i class="bi bi-upload me-2"></i>Import Massal</a>
             <a href="rekap_nilai.php"><i class="bi bi-bar-chart-fill"></i> Rekap Nilai</a>
             <a href="profil_sekolah.php"><i class="bi bi-building"></i> Profil Sekolah</a>
             <?php if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'super_admin'): ?>
@@ -1004,7 +1112,11 @@ if (isset($_SESSION['import_message'])) {
                 <span class="badge bg-primary fs-6"><?= count($soal_list) ?> soal</span>
                 <?php endif; ?>
             </div>
-            
+            <?php if ($selected_ujian > 0 && count($soal_list) > 0): ?>
+            <a href="ekspor_soal_pdf.php?ujian=<?= $selected_ujian ?>" class="btn btn-success" target="_blank">
+                <i class="bi bi-file-pdf me-1"></i> Export PDF
+            </a>
+            <?php endif; ?>
         </div>
         
         <?php if ($message): ?>
@@ -1075,8 +1187,11 @@ if (isset($_SESSION['import_message'])) {
                             </div>
                         </div>
                         <?php if ($edit_soal && $edit_soal['gambar_pertanyaan']): ?>
-                            <div class="mt-2">
+                            <div class="mt-2 position-relative d-inline-block">
                                 <img src="../uploads/<?= $edit_soal['gambar_pertanyaan'] ?>" class="preview-img" alt="Gambar Pertanyaan">
+                                <a href="?ujian=<?= $selected_ujian ?>&edit=<?= $edit_soal['id'] ?>&hapus_gambar=gambar_pertanyaan&token=<?= $csrf_token ?>" class="btn btn-sm btn-danger position-absolute" style="top: -10px; right: -10px;" onclick="return confirm('Hapus gambar ini?')" title="Hapus gambar">
+                                    <i class="bi bi-trash"></i>
+                                </a>
                                 <small class="text-muted d-block">Gambar sudah ada</small>
                             </div>
                         <?php endif; ?>
@@ -1094,7 +1209,12 @@ if (isset($_SESSION['import_message'])) {
                                     </div>
                                 </div>
                                 <?php if ($edit_soal && $edit_soal['gambar_a']): ?>
-                                    <img src="../uploads/<?= $edit_soal['gambar_a'] ?>" class="gambar-preview" alt="Gambar A">
+                                    <div class="mt-2 position-relative d-inline-block">
+                                        <img src="../uploads/<?= $edit_soal['gambar_a'] ?>" class="gambar-preview" alt="Gambar A">
+                                        <a href="?ujian=<?= $selected_ujian ?>&edit=<?= $edit_soal['id'] ?>&hapus_gambar=gambar_a&token=<?= $csrf_token ?>" class="btn btn-sm btn-danger position-absolute" style="top: -5px; right: -5px;" onclick="return confirm('Hapus gambar ini?')" title="Hapus gambar">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </div>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -1110,7 +1230,12 @@ if (isset($_SESSION['import_message'])) {
                                     </div>
                                 </div>
                                 <?php if ($edit_soal && $edit_soal['gambar_b']): ?>
-                                    <img src="../uploads/<?= $edit_soal['gambar_b'] ?>" class="gambar-preview" alt="Gambar B">
+                                    <div class="mt-2 position-relative d-inline-block">
+                                        <img src="../uploads/<?= $edit_soal['gambar_b'] ?>" class="gambar-preview" alt="Gambar B">
+                                        <a href="?ujian=<?= $selected_ujian ?>&edit=<?= $edit_soal['id'] ?>&hapus_gambar=gambar_b&token=<?= $csrf_token ?>" class="btn btn-sm btn-danger position-absolute" style="top: -5px; right: -5px;" onclick="return confirm('Hapus gambar ini?')" title="Hapus gambar">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </div>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -1126,7 +1251,12 @@ if (isset($_SESSION['import_message'])) {
                                     </div>
                                 </div>
                                 <?php if ($edit_soal && $edit_soal['gambar_c']): ?>
-                                    <img src="../uploads/<?= $edit_soal['gambar_c'] ?>" class="gambar-preview" alt="Gambar C">
+                                    <div class="mt-2 position-relative d-inline-block">
+                                        <img src="../uploads/<?= $edit_soal['gambar_c'] ?>" class="gambar-preview" alt="Gambar C">
+                                        <a href="?ujian=<?= $selected_ujian ?>&edit=<?= $edit_soal['id'] ?>&hapus_gambar=gambar_c&token=<?= $csrf_token ?>" class="btn btn-sm btn-danger position-absolute" style="top: -5px; right: -5px;" onclick="return confirm('Hapus gambar ini?')" title="Hapus gambar">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </div>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -1142,7 +1272,12 @@ if (isset($_SESSION['import_message'])) {
                                     </div>
                                 </div>
                                 <?php if ($edit_soal && $edit_soal['gambar_d']): ?>
-                                    <img src="../uploads/<?= $edit_soal['gambar_d'] ?>" class="gambar-preview" alt="Gambar D">
+                                    <div class="mt-2 position-relative d-inline-block">
+                                        <img src="../uploads/<?= $edit_soal['gambar_d'] ?>" class="gambar-preview" alt="Gambar D">
+                                        <a href="?ujian=<?= $selected_ujian ?>&edit=<?= $edit_soal['id'] ?>&hapus_gambar=gambar_d&token=<?= $csrf_token ?>" class="btn btn-sm btn-danger position-absolute" style="top: -5px; right: -5px;" onclick="return confirm('Hapus gambar ini?')" title="Hapus gambar">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </div>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -1158,7 +1293,12 @@ if (isset($_SESSION['import_message'])) {
                                     </div>
                                 </div>
                                 <?php if ($edit_soal && $edit_soal['gambar_e']): ?>
-                                    <img src="../uploads/<?= $edit_soal['gambar_e'] ?>" class="gambar-preview" alt="Gambar E">
+                                    <div class="mt-2 position-relative d-inline-block">
+                                        <img src="../uploads/<?= $edit_soal['gambar_e'] ?>" class="gambar-preview" alt="Gambar E">
+                                        <a href="?ujian=<?= $selected_ujian ?>&edit=<?= $edit_soal['id'] ?>&hapus_gambar=gambar_e&token=<?= $csrf_token ?>" class="btn btn-sm btn-danger position-absolute" style="top: -5px; right: -5px;" onclick="return confirm('Hapus gambar ini?')" title="Hapus gambar">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </div>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -1182,6 +1322,21 @@ if (isset($_SESSION['import_message'])) {
                                 <input type="number" name="poin" class="form-control" value="<?= $edit_soal ? (int)$edit_soal['poin'] : 10 ?>" min="1" max="100">
                             </div>
                         </div>
+                        
+                        <div class="col-md-3">
+                            <div class="opsi-card">
+                                <label class="form-label fw-bold"><i class="bi bi-folder me-1"></i>Kategori</label>
+                                <input type="text" name="kategori" class="form-control" value="<?= $edit_soal ? htmlspecialchars($edit_soal['kategori'] ?? '') : '' ?>" placeholder="Contoh: Bab 1">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="opsi-card">
+                                <label class="form-label fw-bold"><i class="bi bi-clock me-1"></i>Timer/Soal (dtk)</label>
+                                <input type="number" name="timer_soal" class="form-control" value="<?= $edit_soal ? (int)($edit_soal['timer_soal'] ?? 0) : 0 ?>" min="0" max="3600" placeholder="0 = tidak используется">
+                                <small class="text-muted">0 = tidak используется</small>
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="d-flex gap-2 mt-3">
@@ -1194,9 +1349,21 @@ if (isset($_SESSION['import_message'])) {
         </div>
 
         <div class="card animate-fade-in">
-            <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <span><i class="bi bi-list-ol me-2"></i>Daftar Soal</span>
-                <span class="badge bg-primary"><?= count($soal_list) ?> soal</span>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-primary"><?= count($soal_list) ?> soal</span>
+                    <?php if (count($soal_list) > 0): ?>
+                    <div class="bulk-actions" style="display: none;">
+                        <button type="button" class="btn btn-sm btn-danger" id="bulkDeleteBtn">
+                            <i class="bi bi-trash me-1"></i>Hapus Terpilih (<span id="selectedCount">0</span>)
+                        </button>
+                        <button type="button" class="btn btn-sm btn-warning" id="bulkEditBtn">
+                            <i class="bi bi-pencil me-1"></i>Edit Massal
+                        </button>
+                    </div>
+                    <?php endif; ?>
+                </div>
             </div>
             <div class="card-body scrollable-table">
                 <?php if (count($soal_list) > 0): ?>
@@ -1204,22 +1371,38 @@ if (isset($_SESSION['import_message'])) {
                     <table class="table table-hover mb-0">
                         <thead>
                             <tr>
-                                <th class="text-center" style="width: 60px;">No</th>
+                                <th class="text-center" style="width: 40px;"><input type="checkbox" id="selectAll"></th>
+                                <th class="text-center" style="width: 50px;">No</th>
                                 <th>Pertanyaan</th>
-                                <th class="text-center" style="width: 80px;">Gambar</th>
-                                <th class="text-center" style="width: 80px;">Kunci</th>
-                                <th class="text-center" style="width: 70px;">Poin</th>
-                                <th class="text-center" style="width: 120px;">Aksi</th>
+                                <th class="text-center" style="width: 70px;">Kat.</th>
+                                <th class="text-center" style="width: 60px;">Timer</th>
+                                <th class="text-center" style="width: 60px;">Gbr</th>
+                                <th class="text-center" style="width: 60px;">Kunci</th>
+                                <th class="text-center" style="width: 50px;">Poin</th>
+                                <th class="text-center" style="width: 100px;">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php $no = 1; foreach ($soal_list as $soal): ?>
                             <tr>
+                                <td class="text-center"><input type="checkbox" class="soal-checkbox" value="<?= $soal['id'] ?>"></td>
                                 <td class="text-center"><?= $no++ ?></td>
-                                <td>
-                                    <div class="text-truncate" style="max-width: 300px;" title="<?= htmlspecialchars($soal['pertanyaan']) ?>">
-                                        <?= htmlspecialchars(mb_strimwidth($soal['pertanyaan'], 0, 80, '...')) ?>
-                                    </div>
+                                <td style="white-space: normal; word-wrap: break-word; min-width: 150px;">
+                                    <?= nl2br(htmlspecialchars($soal['pertanyaan'])) ?>
+                                </td>
+                                <td class="text-center">
+                                    <?php if (!empty($soal['kategori'])): ?>
+                                        <span class="badge bg-secondary"><?= htmlspecialchars($soal['kategori']) ?></span>
+                                    <?php else: ?>
+                                        <span class="text-muted">-</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="text-center">
+                                    <?php if (($soal['timer_soal'] ?? 0) > 0): ?>
+                                        <span class="badge bg-info"><?= $soal['timer_soal'] ?> dtk</span>
+                                    <?php else: ?>
+                                        <span class="text-muted">-</span>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="text-center">
                                     <?php if ($soal['gambar_pertanyaan'] || $soal['gambar_a'] || $soal['gambar_b'] || $soal['gambar_c'] || $soal['gambar_d'] || $soal['gambar_e']): ?>
@@ -1489,6 +1672,125 @@ if (isset($_SESSION['import_message'])) {
             box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
         }
     </style>
+
+    <script src="../vendor/bootstrap/bootstrap.bundle.min.js"></script>
+    <script>
+        // Bulk actions functionality
+        document.getElementById('selectAll')?.addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.soal-checkbox');
+            checkboxes.forEach(cb => cb.checked = this.checked);
+            updateBulkActions();
+        });
+        
+        document.querySelectorAll('.soal-checkbox').forEach(cb => {
+            cb.addEventListener('change', updateBulkActions);
+        });
+        
+        function updateBulkActions() {
+            const checked = document.querySelectorAll('.soal-checkbox:checked');
+            const bulkActions = document.querySelector('.bulk-actions');
+            const selectedCount = document.getElementById('selectedCount');
+            
+            if (checked.length > 0) {
+                bulkActions.style.display = 'inline-flex';
+                selectedCount.textContent = checked.length;
+            } else {
+                bulkActions.style.display = 'none';
+            }
+        }
+        
+        document.getElementById('bulkDeleteBtn')?.addEventListener('click', function() {
+            const checked = document.querySelectorAll('.soal-checkbox:checked');
+            if (checked.length === 0) return;
+            
+            if (confirm('Hapus ' + checked.length + ' soal yang dipilih?')) {
+                const ids = Array.from(checked).map(cb => cb.value).join(',');
+                window.location.href = '?ujian=<?= $selected_ujian ?>&bulk_delete=1&ids=' + ids + '&token=<?= $csrf_token ?>';
+            }
+        });
+        
+        document.getElementById('bulkEditBtn')?.addEventListener('click', function() {
+            const checked = document.querySelectorAll('.soal-checkbox:checked');
+            if (checked.length === 0) return;
+            
+            const ids = Array.from(checked).map(cb => cb.value).join(',');
+            document.getElementById('bulkEditIds').value = ids;
+            document.getElementById('bulkEditModal').style.display = 'flex';
+        });
+        
+        // Delete single soal
+        document.querySelectorAll('.btn-hapus-soal').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.dataset.id;
+                const token = this.dataset.token;
+                if (confirm('Hapus soal ini?')) {
+                    window.location.href = '?ujian=<?= $selected_ujian ?>&hapus=' + id + '&token=' + token;
+                }
+            });
+        });
+        
+        function toggleSidebar() {
+            document.querySelector('.sidebar').classList.toggle('show');
+            document.querySelector('.overlay').classList.toggle('show');
+        }
+        
+        document.querySelectorAll('.sidebar a').forEach(function(link) {
+            link.addEventListener('click', function() {
+                if (window.innerWidth <= 992) {
+                    document.querySelector('.sidebar').classList.remove('show');
+                    document.querySelector('.overlay').classList.remove('show');
+                }
+            });
+        });
+        
+        function updateFileName(input, labelId) {
+            const label = document.getElementById(labelId);
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const ext = file.name.split('.').pop().toLowerCase();
+                const icon = ext === 'pdf' ? 'bi-file-pdf' : (['jpg','jpeg','png','gif','webp'].includes(ext) ? 'bi-file-image' : 'bi-file-earmark');
+                label.innerHTML = '<i class="bi ' + icon + '"></i> ' + file.name;
+            }
+        }
+        
+        // Show toast message
+        const toastEl = document.querySelector('.toast');
+        if (toastEl) {
+            new bootstrap.Toast(toastEl).show();
+        }
+        
+        // Bulk edit modal
+        document.querySelector('.close-bulk-edit')?.addEventListener('click', function() {
+            document.getElementById('bulkEditModal').style.display = 'none';
+        });
+    </script>
+
+    <!-- Bulk Edit Modal -->
+    <div id="bulkEditModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center;">
+        <div style="background: white; border-radius: 12px; padding: 2rem; max-width: 400px; width: 90%;">
+            <h5 class="mb-3"><i class="bi bi-pencil me-2"></i>Edit Massal</h5>
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="<?= $csrf_token ?>">
+                <input type="hidden" name="bulk_ids" id="bulkEditIds" value="">
+                <input type="hidden" name="bulk_update" value="1">
+                
+                <div class="mb-3">
+                    <label class="form-label">Kategori Baru (kosongkan jika tidak diubah)</label>
+                    <input type="text" name="bulk_kategori" class="form-control" placeholder="Contoh: Bab 1">
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Poin Baru (kosongkan jika tidak diubah)</label>
+                    <input type="number" name="bulk_poin" class="form-control" placeholder="Contoh: 10" min="1">
+                </div>
+                
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-secondary close-bulk-edit">Batal</button>
+                    <button type="submit" class="btn btn-primary">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     </body>
 </html>
