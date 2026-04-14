@@ -1185,8 +1185,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                 
                 if (data.valid) {
                     document.getElementById('examCodeForm').style.display = 'none';
-                    document.getElementById('examContent').style.display = 'block';
-                    startExam();
+                    document.getElementById('identitySection').style.display = 'block';
+                    document.getElementById('questionSection').style.display = 'none';
                 } else {
                     alert(data.message || 'Kode ujian salah!');
                 }
