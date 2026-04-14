@@ -393,63 +393,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
         body { background: #f8f9fa; margin: 0; padding: 0; }
         img { max-width: 100%; height: auto; }
         
-        /* Header Styling */
-        .ujian-header {
-            background: linear-gradient(135deg, <?= $sekolah['warna_primer'] ?> 0%, <?= $sekolah['warna_sekunder'] ?> 100%);
-            padding: 25px 0;
-            margin-bottom: 25px;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .ujian-header::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-        }
-        
-        .school-logo {
-            width: 55px;
-            height: 55px;
-            background: rgba(255,255,255,0.25);
-            border-radius: 50%;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-        
-        .school-logo img {
-            width: 40px;
-            height: 40px;
-            object-fit: contain;
-        }
-        
-        .header-title {
-            color: white;
-            font-weight: 700;
-            font-size: 1.4rem;
-            margin-bottom: 8px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.15);
-        }
-        
-        .header-subtitle {
-            color: rgba(255,255,255,0.85);
-            font-size: 0.95rem;
-            margin-bottom: 12px;
-        }
-        
-        .header-badge {
-            background: rgba(255,255,255,0.2);
-            color: white;
-            padding: 8px 14px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            backdrop-filter: blur(5px);
-            display: inline-block;
-        }
+/* Header Styling */
+.ujian-header {
+    background: linear-gradient(135deg, <?= $sekolah['warna_primer'] ?> 0%, <?= $sekolah['warna_sekunder'] ?> 100%);
+    padding: 30px 20px;
+    margin-bottom: 25px;
+    position: relative;
+    overflow: hidden;
+}
+
+.ujian-header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+.school-logo {
+    width: 70px;
+    height: 70px;
+    background: white;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+}
+
+.school-logo img {
+    width: 50px;
+    height: 50px;
+    object-fit: contain;
+}
+
+.header-title {
+    color: white;
+    font-weight: 700;
+    font-size: 1.5rem;
+    margin-bottom: 8px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+.header-subtitle {
+    color: rgba(255,255,255,0.85);
+    font-size: 0.95rem;
+    margin-bottom: 15px;
+}
+
+.header-badge {
+    background: rgba(255,255,255,0.25);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 25px;
+    font-size: 0.85rem;
+    backdrop-filter: blur(5px);
+    display: inline-block;
+}
         
         /* Card Styles */
         .identitas-card, .soal-card, .soal-navigator {
@@ -585,20 +584,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             font-size: 0.9rem;
         }
         
-        /* Mobile Responsive */
+/* Mobile Responsive */
         @media (max-width: 768px) {
-            .ujian-header { padding: 20px 0; }
-            .school-logo { width: 45px; height: 45px; }
-            .header-title { font-size: 1rem; }
-            .header-subtitle { font-size: 0.8rem; }
-            .header-badge { font-size: 0.75rem; padding: 5px 10px; }
-            .identitas-card, .soal-card, .soal-navigator { padding: 18px; border-radius: 12px; }
-            .soal-number { width: 32px; height: 32px; font-size: 0.9rem; }
-            .option-label { padding: 12px 14px; border-radius: 10px; }
-            .option-letter { min-width: 28px; height: 28px; font-size: 0.85rem; }
-            .btn-primary { padding: 12px 24px; }
-            .progress-indicator { bottom: 10px; right: 10px; padding: 10px 14px; }
-            .progress-circle { width: 38px; height: 38px; font-size: 0.8rem; }
+            .ujian-header { padding: 25px 15px; }
+            .school-logo { width: 55px; height: 55px; }
+            .school-logo img { width: 40px; height: 40px; }
+            .header-title { font-size: 1.2rem; }
+            .header-subtitle { font-size: 0.85rem; }
+            .header-badge { padding: 6px 12px; font-size: 0.8rem; }
         }
         
         @media (max-width: 480px) {
@@ -883,23 +876,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
     <div class="ujian-header">
         <div class="container position-relative">
             <div class="row align-items-center">
-                <div class="col-12 text-center d-md-none mb-3">
+                <!-- Kiri: Logo & Nama Sekolah (tapi di tengah untuk HP) -->
+                <div class="col-12 text-center mb-3 mb-md-0">
                     <div class="school-logo d-inline-flex">
                         <?php if ($sekolah['logo'] && file_exists('uploads/' . $sekolah['logo'])): ?>
                             <img src="uploads/<?= $sekolah['logo'] ?>" alt="Logo">
                         <?php else: ?>
-                            <i class="bi bi-mortarboard-fill" style="font-size: 1.5rem; color: white;"></i>
+                            <i class="bi bi-mortarboard-fill" style="font-size: 2rem; color: white;"></i>
                         <?php endif; ?>
                     </div>
-                    <div class="text-white fw-bold" style="font-size: 0.9rem; margin-top: 8px;"><?= htmlspecialchars($sekolah['nama_sekolah']) ?></div>
+                    <div class="text-white fw-bold d-block" style="font-size: 1rem; margin-top: 10px;"><?= htmlspecialchars($sekolah['nama_sekolah']) ?></div>
                 </div>
-                <div class="col-md-7">
-                    <a href="index.php" class="text-white text-decoration-none mb-2 d-inline-flex align-items-center">
+                <!-- Tengah: Info Ujian -->
+                <div class="col-12 text-center">
+                    <a href="index.php" class="text-white text-decoration-none mb-2 d-inline-flex align-items-center justify-content-center">
                         <i class="bi bi-arrow-left me-2"></i>Kembali
                     </a>
                     <h2 class="header-title"><?= htmlspecialchars($ujian['judul_ujian']) ?></h2>
                     <p class="header-subtitle"><?= htmlspecialchars($ujian['deskripsi']) ?></p>
-                    <div class="d-flex flex-wrap gap-2 mt-3">
+                    <div class="d-flex flex-wrap gap-2 justify-content-center mt-2">
                         <span class="header-badge">
                             <i class="bi bi-question-circle me-1"></i><?= count($soal_list) ?> Soal
                         </span>
@@ -907,15 +902,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                         <span class="header-badge" style="background: #ffc107; color: #333;">
                             <i class="bi bi-clock me-1"></i><?= $ujian['waktu_tersedia'] ?> menit
                         </span>
-                        <?php endif; ?>
-                    </div>
-                </div>
-                <div class="col-md-5 text-center text-md-end d-none d-md-block">
-                    <div class="school-logo d-inline-flex">
-                        <?php if ($sekolah['logo'] && file_exists('uploads/' . $sekolah['logo'])): ?>
-                            <img src="uploads/<?= $sekolah['logo'] ?>" alt="Logo">
-                        <?php else: ?>
-                            <i class="bi bi-mortarboard-fill" style="font-size: 2rem; color: white;"></i>
                         <?php endif; ?>
                     </div>
                 </div>
