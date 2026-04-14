@@ -832,12 +832,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             const identitySection = document.getElementById('identitySection');
             const questionSection = document.getElementById('questionSection');
             const examCodeForm = document.getElementById('examCodeForm');
+            const examContent = document.getElementById('examContent');
             
             if (HAS_EXAM_CODE && examCodeForm) {
                 examCodeForm.style.display = 'block';
+                examContent.style.display = 'none';
                 identitySection.style.display = 'none';
                 questionSection.style.display = 'none';
             } else {
+                examContent.style.display = 'block';
                 identitySection.style.display = 'block';
                 questionSection.style.display = 'none';
             }
@@ -1051,6 +1054,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                 
                 if (data.valid === true) {
                     document.getElementById('examCodeForm').style.display = 'none';
+                    document.getElementById('examContent').style.display = 'block';
                     document.getElementById('identitySection').style.display = 'block';
                     document.getElementById('questionSection').style.display = 'none';
                 } else {
@@ -1185,6 +1189,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                 
                 if (data.valid) {
                     document.getElementById('examCodeForm').style.display = 'none';
+                    document.getElementById('examContent').style.display = 'block';
                     document.getElementById('identitySection').style.display = 'block';
                     document.getElementById('questionSection').style.display = 'none';
                 } else {
