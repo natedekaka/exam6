@@ -395,9 +395,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
 /* Header */
 .ujian-header {
     background: linear-gradient(135deg, <?= $sekolah['warna_primer'] ?> 0%, <?= $sekolah['warna_sekunder'] ?> 100%);
-    padding: 30px 15px;
+    padding: 30px 15px 40px;
     position: relative;
     overflow: hidden;
+    margin-bottom: 20px;
 }
 .ujian-header::before {
     content: '';
@@ -481,7 +482,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
         }
         
         /* Container */
-        .container { padding: 0 15px; max-width: 600px; }
+        .container { padding: 0 15px 20px; max-width: 600px; margin-top: -15px; position: relative; }
         
         /* Cards */
         .exam-card {
@@ -703,8 +704,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
         
 /* Responsive Desktop */
         @media (min-width: 768px) {
-            .container { max-width: 700px; margin: 0 auto; }
-            .ujian-header { padding: 40px 20px; }
+            .container { max-width: 700px; margin: -20px auto 20px; padding: 0 20px; }
+            .ujian-header { padding: 40px 20px 50px; margin-bottom: 30px; }
             .ujian-header .school-logo { width: 80px; height: 80px; }
             .ujian-header .school-logo img { width: 60px; height: 60px; }
             .ujian-header .school-name { font-size: 1.3rem; }
