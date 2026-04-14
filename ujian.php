@@ -392,64 +392,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
         body { background: #f0f2f5; margin: 0; padding: 0; }
         img { max-width: 100%; height: auto; }
         
-        /* Header */
-        .ujian-header {
-            background: linear-gradient(135deg, <?= $sekolah['warna_primer'] ?> 0%, <?= $sekolah['warna_sekunder'] ?> 100%);
-            padding: 25px 15px;
-            text-align: center;
-        }
-        .ujian-header .logo-wrap {
-            display: inline-block;
-            background: white;
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            line-height: 60px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            margin-bottom: 10px;
-        }
-        .ujian-header .logo-wrap img {
-            width: 40px;
-            height: 40px;
-            object-fit: contain;
-            vertical-align: middle;
-        }
-        .ujian-header .school-name {
-            color: white;
-            font-weight: 700;
-            font-size: 1rem;
-            margin-bottom: 12px;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .ujian-header .exam-title {
-            color: white;
-            font-weight: 700;
-            font-size: 1.2rem;
-            margin-bottom: 5px;
-        }
-        .ujian-header .exam-desc {
-            color: rgba(255,255,255,0.8);
-            font-size: 0.85rem;
-            margin-bottom: 12px;
-        }
-        .ujian-header .badges {
-            display: flex;
-            gap: 8px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-        .ujian-header .badge-item {
-            background: rgba(255,255,255,0.25);
-            color: white;
-            padding: 5px 12px;
-            border-radius: 15px;
-            font-size: 0.75rem;
-            backdrop-filter: blur(4px);
-        }
-        .ujian-header .badge-item.warning {
-            background: #ffc107;
-            color: #333;
-        }
+/* Header */
+.ujian-header {
+    background: linear-gradient(135deg, <?= $sekolah['warna_primer'] ?> 0%, <?= $sekolah['warna_sekunder'] ?> 100%);
+    padding: 30px 15px;
+    position: relative;
+    overflow: hidden;
+}
+.ujian-header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+.ujian-header .school-logo {
+    width: 70px;
+    height: 70px;
+    background: white;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+    margin-bottom: 15px;
+}
+.ujian-header .school-logo img {
+    width: 50px;
+    height: 50px;
+    object-fit: contain;
+}
+.ujian-header .school-logo i {
+    font-size: 2rem;
+    color: #667eea;
+}
+.ujian-header .school-name {
+    color: white;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.ujian-header .header-content .back-link {
+    display: inline-block;
+    color: rgba(255,255,255,0.8);
+    text-decoration: none;
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+}
+.ujian-header .header-content .back-link:hover {
+    color: white;
+}
+.ujian-header .exam-title {
+    color: white;
+    font-weight: 700;
+    font-size: 1.4rem;
+    margin-bottom: 8px;
+}
+.ujian-header .exam-desc {
+    color: rgba(255,255,255,0.8);
+    font-size: 0.9rem;
+    margin-bottom: 15px;
+}
+.ujian-header .header-badges {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+.ujian-header .badge-item {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    backdrop-filter: blur(4px);
+}
+.ujian-header .badge-item.warning {
+    background: #ffc107;
+    color: #333;
+}
         .ujian-header .back-link {
             display: inline-block;
             color: white;
@@ -683,8 +704,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
 /* Responsive Desktop */
         @media (min-width: 768px) {
             .container { max-width: 700px; margin: 0 auto; }
-            .ujian-header { padding: 35px 20px; }
-            .ujian-header .exam-title { font-size: 1.5rem; }
+            .ujian-header { padding: 40px 20px; }
+            .ujian-header .school-logo { width: 80px; height: 80px; }
+            .ujian-header .school-logo img { width: 60px; height: 60px; }
+            .ujian-header .school-name { font-size: 1.3rem; }
+            .ujian-header .exam-title { font-size: 1.8rem; }
+            .ujian-header .exam-desc { font-size: 1rem; }
             .soal-card, .exam-card { padding: 25px; border-radius: 20px; }
             .option-label { padding: 15px 20px; }
             .btn-start, .btn-submit { width: auto; display: inline-block; }
@@ -699,32 +724,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
 <body>
     <!-- Header -->
     <div class="ujian-header">
-        <div style="text-align: center; padding: 20px 15px;">
-            <div class="school-logo d-inline-flex" style="background: white; border-radius: 50%; width: 70px; height: 70px; align-items: center; justify-content: center; box-shadow: 0 8px 25px rgba(0,0,0,0.2); margin-bottom: 10px;">
-                <?php if ($sekolah['logo'] && file_exists('uploads/' . $sekolah['logo'])): ?>
-                    <img src="uploads/<?= $sekolah['logo'] ?>" alt="Logo" style="width: 50px; height: 50px; object-fit: contain;">
-                <?php else: ?>
-                    <i class="bi bi-mortarboard-fill" style="font-size: 2rem; color: #667eea;"></i>
-                <?php endif; ?>
-            </div>
-            <div style="color: white; font-weight: bold; font-size: 1.1rem; margin-bottom: 15px;"><?= htmlspecialchars($sekolah['nama_sekolah']) ?></div>
-            
-            <a href="index.php" style="color: white; text-decoration: none; display: inline-flex; align-items: center; margin-bottom: 10px;">
-                <i class="bi bi-arrow-left" style="margin-right: 5px;"></i> Kembali
-            </a>
-            
-            <h2 style="color: white; font-weight: 700; font-size: 1.4rem; margin-bottom: 8px;"><?= htmlspecialchars($ujian['judul_ujian']) ?></h2>
-            <p style="color: rgba(255,255,255,0.85); font-size: 0.9rem; margin-bottom: 12px;"><?= htmlspecialchars($ujian['deskripsi']) ?></p>
-            
-            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                <span style="background: rgba(255,255,255,0.25); color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem;">
-                    <i class="bi bi-question-circle" style="margin-right: 5px;"></i><?= count($soal_list) ?> Soal
-                </span>
-                <?php if (isset($ujian['waktu_tersedia']) && $ujian['waktu_tersedia'] > 0): ?>
-                <span style="background: #ffc107; color: #333; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem;">
-                    <i class="bi bi-clock" style="margin-right: 5px;"></i><?= $ujian['waktu_tersedia'] ?> menit
-                </span>
-                <?php endif; ?>
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-12 text-center">
+                    <div class="school-logo">
+                        <?php if ($sekolah['logo'] && file_exists('uploads/' . $sekolah['logo'])): ?>
+                            <img src="uploads/<?= $sekolah['logo'] ?>" alt="Logo">
+                        <?php else: ?>
+                            <i class="bi bi-mortarboard-fill"></i>
+                        <?php endif; ?>
+                    </div>
+                    <div class="school-name"><?= htmlspecialchars($sekolah['nama_sekolah']) ?></div>
+                    
+                    <div class="header-content">
+                        <a href="index.php" class="back-link">
+                            <i class="bi bi-arrow-left"></i> Kembali
+                        </a>
+                        <h1 class="exam-title"><?= htmlspecialchars($ujian['judul_ujian']) ?></h1>
+                        <?php if ($ujian['deskripsi']): ?>
+                        <p class="exam-desc"><?= htmlspecialchars($ujian['deskripsi']) ?></p>
+                        <?php endif; ?>
+                        
+                        <div class="header-badges">
+                            <span class="badge-item">
+                                <i class="bi bi-question-circle"></i> <?= count($soal_list) ?> Soal
+                            </span>
+                            <?php if (isset($ujian['waktu_tersedia']) && $ujian['waktu_tersedia'] > 0): ?>
+                            <span class="badge-item warning">
+                                <i class="bi bi-clock"></i> <?= $ujian['waktu_tersedia'] ?> menit
+                            </span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
