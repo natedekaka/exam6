@@ -385,9 +385,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
     <title><?= htmlspecialchars($ujian['judul_ujian']) ?> - Ujian Online</title>
     <link href vendor/bootstrap/bootstrap.min.css rel stylesheet>
     <link rel stylesheet href vendor/bootstrap-icons/bootstrap-icons.min.css>
+    <link rel preload href https://fonts.gstatic.com crossorigin>
+    <link href https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap rel stylesheet>
     <style>
-        * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
-        body { background: #f8f9fa; -webkit-font-smoothing: antialiased; }
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+        * { font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; box-sizing: border-box; }
+        body { background: #f8f9fa; margin: 0; padding: 0; }
+        img { max-width: 100%; height: auto; }
+        
+        /* Optimasi untuk HP lawas */
+        @media (max-width: 480px) {
+            .soal-card { padding: 15px; margin-bottom: 15px; border-radius: 12px; }
+            .soal-number { width: 32px; height: 32px; font-size: 0.9rem; border-radius: 8px; }
+            .option-label { padding: 12px 15px; margin-bottom: 8px; border-radius: 10px; }
+            .option-letter { width: 28px; height: 28px; font-size: 0.85rem; }
+            .ujian-header { padding: 20px 0; }
+            .soal-navigator { padding: 15px; border-radius: 12px; }
+            .soal-grid .btn { width: 36px; height: 36px; font-size: 0.85rem; }
+            .nav-buttons .btn { padding: 10px 15px; font-size: 0.9rem; }
+            .identitas-card { padding: 20px; border-radius: 12px; }
+            .progress-indicator { bottom: 15px; right: 15px; padding: 10px 15px; }
+        }
         
         .school-logo {
             width: 60px;
