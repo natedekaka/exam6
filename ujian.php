@@ -429,25 +429,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
         
         .header-title {
             color: white;
-            font-weight: 600;
-            font-size: 1.1rem;
-            margin-bottom: 2px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            font-weight: 700;
+            font-size: 1.4rem;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.15);
         }
         
         .header-subtitle {
-            color: rgba(255,255,255,0.8);
-            font-size: 0.9rem;
-            margin: 0;
+            color: rgba(255,255,255,0.85);
+            font-size: 0.95rem;
+            margin-bottom: 12px;
         }
         
         .header-badge {
             background: rgba(255,255,255,0.2);
             color: white;
-            padding: 6px 14px;
+            padding: 8px 14px;
             border-radius: 20px;
             font-size: 0.85rem;
             backdrop-filter: blur(5px);
+            display: inline-block;
         }
         
         /* Card Styles */
@@ -882,7 +883,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
     <div class="ujian-header">
         <div class="container position-relative">
             <div class="row align-items-center">
-                <div class="col-md-2 text-center text-md-start mb-3 mb-md-0">
+                <div class="col-12 text-center d-md-none mb-3">
                     <div class="school-logo d-inline-flex">
                         <?php if ($sekolah['logo'] && file_exists('uploads/' . $sekolah['logo'])): ?>
                             <img src="uploads/<?= $sekolah['logo'] ?>" alt="Logo">
@@ -890,24 +891,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                             <i class="bi bi-mortarboard-fill" style="font-size: 1.5rem; color: white;"></i>
                         <?php endif; ?>
                     </div>
-                    <div class="text-white fw-bold d-block d-md-none" style="font-size: 0.8rem; margin-top: 5px;"><?= htmlspecialchars($sekolah['nama_sekolah']) ?></div>
+                    <div class="text-white fw-bold" style="font-size: 0.9rem; margin-top: 8px;"><?= htmlspecialchars($sekolah['nama_sekolah']) ?></div>
                 </div>
-                <div class="col-md-6">
-                    <a href="index.php" class="text-white text-decoration-none mb-2 d-inline-block">
-                        <i class="bi bi-arrow-left me-1"></i>Kembali
+                <div class="col-md-7">
+                    <a href="index.php" class="text-white text-decoration-none mb-2 d-inline-flex align-items-center">
+                        <i class="bi bi-arrow-left me-2"></i>Kembali
                     </a>
                     <h2 class="header-title"><?= htmlspecialchars($ujian['judul_ujian']) ?></h2>
                     <p class="header-subtitle"><?= htmlspecialchars($ujian['deskripsi']) ?></p>
+                    <div class="d-flex flex-wrap gap-2 mt-3">
+                        <span class="header-badge">
+                            <i class="bi bi-question-circle me-1"></i><?= count($soal_list) ?> Soal
+                        </span>
+                        <?php if (isset($ujian['waktu_tersedia']) && $ujian['waktu_tersedia'] > 0): ?>
+                        <span class="header-badge" style="background: #ffc107; color: #333;">
+                            <i class="bi bi-clock me-1"></i><?= $ujian['waktu_tersedia'] ?> menit
+                        </span>
+                        <?php endif; ?>
+                    </div>
                 </div>
-                <div class="col-md-4 text-md-end">
-                    <div class="header-badge d-inline-block mb-2">
-                        <i class="bi bi-question-circle me-2"></i><?= count($soal_list) ?> Soal
+                <div class="col-md-5 text-center text-md-end d-none d-md-block">
+                    <div class="school-logo d-inline-flex">
+                        <?php if ($sekolah['logo'] && file_exists('uploads/' . $sekolah['logo'])): ?>
+                            <img src="uploads/<?= $sekolah['logo'] ?>" alt="Logo">
+                        <?php else: ?>
+                            <i class="bi bi-mortarboard-fill" style="font-size: 2rem; color: white;"></i>
+                        <?php endif; ?>
                     </div>
-                    <?php if (isset($ujian['waktu_tersedia']) && $ujian['waktu_tersedia'] > 0): ?>
-                    <div class="header-badge" style="background: #ffc107; color: #333;">
-                        <i class="bi bi-clock me-2"></i><span id="timerDisplay"><?= $ujian['waktu_tersedia'] ?></span> menit
-                    </div>
-                    <?php endif; ?>
                 </div>
             </div>
         </div>
