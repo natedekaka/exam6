@@ -389,46 +389,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
     <link href https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap rel stylesheet>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
         * { font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; box-sizing: border-box; }
         body { background: #f8f9fa; margin: 0; padding: 0; }
         img { max-width: 100%; height: auto; }
         
-        /* Optimasi untuk HP lawas */
-        @media (max-width: 480px) {
-            .soal-card { padding: 15px; margin-bottom: 15px; border-radius: 12px; }
-            .soal-number { width: 32px; height: 32px; font-size: 0.9rem; border-radius: 8px; }
-            .option-label { padding: 12px 15px; margin-bottom: 8px; border-radius: 10px; }
-            .option-letter { width: 28px; height: 28px; font-size: 0.85rem; }
-            .ujian-header { padding: 20px 0; }
-            .soal-navigator { padding: 15px; border-radius: 12px; }
-            .soal-grid .btn { width: 36px; height: 36px; font-size: 0.85rem; }
-            .nav-buttons .btn { padding: 10px 15px; font-size: 0.9rem; }
-            .identitas-card { padding: 20px; border-radius: 12px; }
-            .progress-indicator { bottom: 15px; right: 15px; padding: 10px 15px; }
-        }
-        
-        .school-logo {
-            width: 60px;
-            height: 60px;
-            background: rgba(255,255,255,0.2);
-            border-radius: 50%;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .school-logo img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            border-radius: 50%;
-        }
-        
+        /* Header Styling */
         .ujian-header {
             background: linear-gradient(135deg, <?= $sekolah['warna_primer'] ?> 0%, <?= $sekolah['warna_sekunder'] ?> 100%);
-            padding: 30px 0;
-            margin-bottom: 30px;
+            padding: 25px 0;
+            margin-bottom: 25px;
             position: relative;
             overflow: hidden;
         }
@@ -436,18 +405,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
         .ujian-header::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23ffffff' fill-opacity='0.05' fill-rule='evenodd'/%3E%3C/svg%3E");
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
         }
         
-        .soal-card { 
-            background: white; 
-            border-radius: 16px; 
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08); 
-            margin-bottom: 25px;
+        .school-logo {
+            width: 55px;
+            height: 55px;
+            background: rgba(255,255,255,0.25);
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .school-logo img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+        }
+        
+        .header-title {
+            color: white;
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 2px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .header-subtitle {
+            color: rgba(255,255,255,0.8);
+            font-size: 0.9rem;
+            margin: 0;
+        }
+        
+        .header-badge {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            backdrop-filter: blur(5px);
+        }
+        
+        /* Card Styles */
+        .identitas-card, .soal-card, .soal-navigator {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        
+        .soal-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
             padding: 25px;
             border: 2px solid transparent;
             transition: all 0.3s ease;
@@ -457,18 +473,159 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             border-color: rgba(102, 126, 234, 0.3);
         }
         
+        /* Form Styles */
+        .form-control {
+            border-radius: 12px;
+            padding: 12px 16px;
+            border: 2px solid #e9ecef;
+            font-size: 1rem;
+        }
+        
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            padding: 14px 30px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        /* Question Number Badge */
         .soal-number {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            width: 40px;
-            height: 40px;
-            border-radius: 12px;
+            min-width: 38px;
+            height: 38px;
+            border-radius: 10px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             font-weight: 700;
-            font-size: 1.1rem;
-            margin-right: 15px;
+            font-size: 1rem;
+            margin-right: 12px;
+        }
+        
+        /* Option Styles */
+        .option-label {
+            cursor: pointer;
+            padding: 14px 18px;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+        }
+        
+        .option-label:hover { 
+            background: #f8f9fa; 
+            border-color: #667eea;
+            transform: translateX(5px);
+        }
+        
+        .option-label input:checked + .option-letter {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .option-letter {
+            background: #f1f3f5;
+            color: #495057;
+            min-width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            margin-right: 12px;
+            transition: all 0.2s;
+        }
+        
+        .option-content {
+            flex: 1;
+            color: #212529;
+        }
+        
+        /* Progress Indicator */
+        .progress-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 12px 20px;
+            border-radius: 14px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 100;
+        }
+        
+        .progress-circle {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+        
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .ujian-header { padding: 20px 0; }
+            .school-logo { width: 45px; height: 45px; }
+            .header-title { font-size: 1rem; }
+            .header-subtitle { font-size: 0.8rem; }
+            .header-badge { font-size: 0.75rem; padding: 5px 10px; }
+            .identitas-card, .soal-card, .soal-navigator { padding: 18px; border-radius: 12px; }
+            .soal-number { width: 32px; height: 32px; font-size: 0.9rem; }
+            .option-label { padding: 12px 14px; border-radius: 10px; }
+            .option-letter { min-width: 28px; height: 28px; font-size: 0.85rem; }
+            .btn-primary { padding: 12px 24px; }
+            .progress-indicator { bottom: 10px; right: 10px; padding: 10px 14px; }
+            .progress-circle { width: 38px; height: 38px; font-size: 0.8rem; }
+        }
+        
+        @media (max-width: 480px) {
+            .ujian-header { padding: 15px 0; margin-bottom: 15px; }
+            .identitas-card, .soal-card, .soal-navigator { padding: 15px; border-radius: 10px; margin-bottom: 12px; }
+            .soal-number { width: 30px; height: 30px; font-size: 0.85rem; margin-right: 10px; }
+            .form-control { padding: 10px 14px; font-size: 0.95rem; }
+            .header-title { font-size: 0.95rem; }
+            .soal-grid .btn { width: 34px; height: 34px; font-size: 0.8rem; }
+            .nav-buttons .btn { padding: 10px 12px; font-size: 0.85rem; }
+        }
+        
+        .soal-card:hover {
+            border-color: rgba(102, 126, 234, 0.3);
+        }
+        
+        .soal-number {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1rem;
+            margin-right: 12px;
         }
         
         .option-label {
@@ -728,27 +885,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                 <div class="col-md-2 text-center text-md-start mb-3 mb-md-0">
                     <div class="school-logo d-inline-flex">
                         <?php if ($sekolah['logo'] && file_exists('uploads/' . $sekolah['logo'])): ?>
-                            <img src="uploads/<?= $sekolah['logo'] ?>" alt="Logo" width="60" height="60">
+                            <img src="uploads/<?= $sekolah['logo'] ?>" alt="Logo">
                         <?php else: ?>
-                            <i class="bi bi-mortarboard-fill" style="font-size: 2rem; color: white;"></i>
+                            <i class="bi bi-mortarboard-fill" style="font-size: 1.5rem; color: white;"></i>
                         <?php endif; ?>
                     </div>
-                    <div class="text-white fw-bold" style="font-size: 0.85rem;"><?= htmlspecialchars($sekolah['nama_sekolah']) ?></div>
+                    <div class="text-white fw-bold d-block d-md-none" style="font-size: 0.8rem; margin-top: 5px;"><?= htmlspecialchars($sekolah['nama_sekolah']) ?></div>
                 </div>
                 <div class="col-md-6">
                     <a href="index.php" class="text-white text-decoration-none mb-2 d-inline-block">
-                        <i class="bi bi-arrow-left"></i> Kembali
+                        <i class="bi bi-arrow-left me-1"></i>Kembali
                     </a>
-                    <h2 class="text-white fw-bold mb-1"><?= htmlspecialchars($ujian['judul_ujian']) ?></h2>
-                    <p class="text-white-50 mb-0"><?= htmlspecialchars($ujian['deskripsi']) ?></p>
+                    <h2 class="header-title"><?= htmlspecialchars($ujian['judul_ujian']) ?></h2>
+                    <p class="header-subtitle"><?= htmlspecialchars($ujian['deskripsi']) ?></p>
                 </div>
                 <div class="col-md-4 text-md-end">
-                    <div class="badge bg-white bg-opacity-25 text-white fs-6 px-3 py-2 mb-2">
+                    <div class="header-badge d-inline-block mb-2">
                         <i class="bi bi-question-circle me-2"></i><?= count($soal_list) ?> Soal
                     </div>
                     <?php if (isset($ujian['waktu_tersedia']) && $ujian['waktu_tersedia'] > 0): ?>
-                    <div class="badge bg-warning fs-6 px-3 py-2" id="timerBadge">
-                        <i class="bi bi-clock me-2"></i><span id="timerDisplay"><?= $ujian['waktu_tersedia'] ?>:00</span>
+                    <div class="header-badge" style="background: #ffc107; color: #333;">
+                        <i class="bi bi-clock me-2"></i><span id="timerDisplay"><?= $ujian['waktu_tersedia'] ?></span> menit
                     </div>
                     <?php endif; ?>
                 </div>
