@@ -844,51 +844,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                 </div>
                 
                 <div class="soal-grid" id="soalNumbersContainer">
-                </div>
+</div>
             </div>
 
             <!-- Submit -->
             <div style="text-align: center; margin-bottom: 20px;" id="submitSection">
                 <button type="button" class="btn-submit" onclick="submitFinal()">
-                    <i class="bi bi-send-fill me-2"></i>Kirim Jawaban
-                </button>
-            </div>
-                    <div class="soal-progress-mobile d-md-none">
-                        <span class="text-muted small" id="progressMobile">0/0 dijawab</span>
-                    </div>
-                </div>
-                
-                <!-- Navigasi Prev/Next dengan Label -->
-                <div class="nav-buttons mb-3">
-                    <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-outline-secondary flex-fill" onclick="prevPage()" id="prevBtn" disabled>
-                            <i class="bi bi-chevron-left me-1"></i>Sebelumnya
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary flex-fill" onclick="nextPage()" id="nextBtn">
-                           Selanjutnya<i class="bi bi-chevron-right ms-1"></i>
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Grid Nomor Soal -->
-                <div class="soal-grid">
-                    <div class="d-flex flex-wrap gap-2 justify-content-center" id="soalNumbersContainer">
-                    </div>
-                </div>
-                
-                <!-- Legend -->
-                <div class="soal-legend mt-3">
-                    <div class="d-flex justify-content-center gap-3 small text-muted">
-                        <span><span class="badge bg-secondary bg-opacity-25 text-secondary">○</span> Belum</span>
-                        <span><span class="badge bg-primary">●</span> Aktif</span>
-                        <span><span class="badge bg-success">✓</span> Dijawab</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Submit -->
-            <div class="text-center mb-5" id="submitSection">
-                <button type="button" class="btn btn-primary btn-submit text-white" onclick="submitFinal()">
                     <i class="bi bi-send-fill me-2"></i>Kirim Jawaban
                 </button>
             </div>
