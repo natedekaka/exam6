@@ -610,6 +610,75 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             gap: 15px;
             z-index: 100;
         }
+        
+        /* Navigasi Superior */
+        .soal-navigator {
+            background: white;
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        
+        .soal-info .badge {
+            font-size: 0.9rem;
+            padding: 8px 16px;
+        }
+        
+        .nav-buttons .btn {
+            padding: 12px 20px;
+            font-weight: 500;
+            border-radius: 10px;
+            transition: all 0.2s ease;
+        }
+        
+        .nav-buttons .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .nav-buttons .btn:disabled {
+            opacity: 0.5;
+        }
+        
+        .soal-grid {
+            padding: 15px 0;
+            border-top: 1px solid #f0f0f0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .soal-grid .btn {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+        
+        .soal-grid .btn:hover:not(.btn-primary) {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .soal-grid .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+            border: none;
+        }
+        
+        .soal-grid .btn-primary {
+            transform: scale(1.1);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .soal-legend {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+        
+        .soal-legend .badge {
+            font-size: 1rem;
+            padding: 4px 8px;
+        }
 
         .progress-circle {
             width: 50px;
@@ -740,28 +809,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                 </button>
             </div>
 
-            <!-- Navigation -->
-            <div class="soal-nav mb-3">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="badge bg-secondary fs-6">
-                            <span id="currentPage">1</span> / <span id="totalPages">1</span>
+            <!-- Navigasi Superior -->
+            <div class="soal-navigator mb-4">
+                <!-- Info Halaman Sekarang -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="soal-info">
+                        <span class="badge bg-primary fs-6 px-3 py-2">
+                            <i class="bi bi-file-text me-1"></i>Soal <span id="currentPage">1</span> dari <span id="totalPages">1</span>
                         </span>
                     </div>
-                    <div class="btn-group">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="prevPage()" id="prevBtn" disabled>
-                            <i class="bi bi-chevron-left"></i>
+                    <div class="soal-progress-mobile d-md-none">
+                        <span class="text-muted small" id="progressMobile">0/0 dijawab</span>
+                    </div>
+                </div>
+                
+                <!-- Navigasi Prev/Next dengan Label -->
+                <div class="nav-buttons mb-3">
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary flex-fill" onclick="prevPage()" id="prevBtn" disabled>
+                            <i class="bi bi-chevron-left me-1"></i>Sebelumnya
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="nextPage()" id="nextBtn">
-                            <i class="bi bi-chevron-right"></i>
+                        <button type="button" class="btn btn-outline-secondary flex-fill" onclick="nextPage()" id="nextBtn">
+                           Selanjutnya<i class="bi bi-chevron-right ms-1"></i>
                         </button>
                     </div>
                 </div>
-            </div>
-            
-            <!-- Question Number Navigation -->
-            <div class="soal-numbers mb-4">
-                <div class="d-flex flex-wrap gap-2 justify-content-center" id="soalNumbersContainer">
+                
+                <!-- Grid Nomor Soal -->
+                <div class="soal-grid">
+                    <div class="d-flex flex-wrap gap-2 justify-content-center" id="soalNumbersContainer">
+                    </div>
+                </div>
+                
+                <!-- Legend -->
+                <div class="soal-legend mt-3">
+                    <div class="d-flex justify-content-center gap-3 small text-muted">
+                        <span><span class="badge bg-secondary bg-opacity-25 text-secondary">○</span> Belum</span>
+                        <span><span class="badge bg-primary">●</span> Aktif</span>
+                        <span><span class="badge bg-success">✓</span> Dijawab</span>
+                    </div>
                 </div>
             </div>
 
@@ -967,16 +1053,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             const total = SOAL_DATA.length;
             
             for (let i = 1; i <= total; i++) {
-                const isAnswered = answers[SOAL_DATA[i-1].id] ? true : false;
+                const soalId = SOAL_DATA[i-1].id;
+                const isAnswered = answers[soalId] ? true : false;
                 const isCurrent = i === currentPage;
-                const btnClass = isAnswered 
-                    ? (isCurrent ? 'btn-primary' : 'btn-success') 
-                    : (isCurrent ? 'btn-primary' : 'btn-outline-secondary');
                 
-                html += `<button type="button" class="btn btn-sm ${btnClass}" onclick="goToPage(${i})">${i}</button>`;
+                let btnHtml = '';
+                if (isCurrent) {
+                    btnHtml = `<button type="button" class="btn btn-sm btn-primary fw-bold" onclick="goToPage(${i})" title="Soal ${i} (aktif)">${i}</button>`;
+                } else if (isAnswered) {
+                    btnHtml = `<button type="button" class="btn btn-sm btn-success" onclick="goToPage(${i})" title="Soal ${i} (dijawab)"><i class="bi bi-check"></i>${i}</button>`;
+                } else {
+                    btnHtml = `<button type="button" class="btn btn-sm btn-outline-secondary" onclick="goToPage(${i})" title="Soal ${i} (belum dijawab)">${i}</button>`;
+                }
+                
+                html += btnHtml;
             }
             
             container.innerHTML = html;
+            
+            // Update mobile progress
+            const answeredCount = Object.keys(answers).length;
+            const progressMobile = document.getElementById('progressMobile');
+            if (progressMobile) {
+                progressMobile.textContent = `${answeredCount}/${total} dijawab`;
+            }
         }
         
         function goToPage(page) {
