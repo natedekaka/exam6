@@ -79,7 +79,7 @@ if (isset($ujian['acak_soal']) && $ujian['acak_soal'] === 'ya') {
     shuffle($soal_list);
 }
 
-$soal_per_halaman = 10;
+$soal_per_halaman = 1;
 
 if (count($soal_list) === 0) {
     die("Belum ada soal. Hubungi guru.");
@@ -733,10 +733,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             </div>
 
             <!-- Navigation -->
-            <div class="soal-nav mb-4">
+            <div class="soal-nav mb-3">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <span class="badge bg-secondary">
+                        <span class="badge bg-secondary fs-6">
                             <span id="currentPage">1</span> / <span id="totalPages">1</span>
                         </span>
                     </div>
@@ -748,6 +748,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                             <i class="bi bi-chevron-right"></i>
                         </button>
                     </div>
+                </div>
+            </div>
+            
+            <!-- Question Number Navigation -->
+            <div class="soal-numbers mb-4">
+                <div class="d-flex flex-wrap gap-2 justify-content-center" id="soalNumbersContainer">
                 </div>
             </div>
 
@@ -920,7 +926,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             document.getElementById('prevBtn').disabled = page === 1;
             document.getElementById('nextBtn').disabled = page === Math.ceil(SOAL_DATA.length / SOAL_PER_HALAMAN);
             
+            updateSoalNumbers();
             updateProgress();
+        }
+        
+        function updateSoalNumbers() {
+            const container = document.getElementById('soalNumbersContainer');
+            if (!container) return;
+            
+            let html = '';
+            const total = SOAL_DATA.length;
+            
+            for (let i = 1; i <= total; i++) {
+                const isAnswered = answers[SOAL_DATA[i-1].id] ? true : false;
+                const isCurrent = i === currentPage;
+                const btnClass = isAnswered 
+                    ? (isCurrent ? 'btn-primary' : 'btn-success') 
+                    : (isCurrent ? 'btn-primary' : 'btn-outline-secondary');
+                
+                html += `<button type="button" class="btn btn-sm ${btnClass}" onclick="goToPage(${i})">${i}</button>`;
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        function goToPage(page) {
+            currentPage = page;
+            loadPage(currentPage);
         }
         
         function nextPage() {
