@@ -2,6 +2,21 @@
 
 Aplikasi ujian online berbasis PHP dan MySQL untuk sekolah dengan fitur keamanan dan administrasi yang lengkap.
 
+## Kompatibilitas
+
+### Platform yang Didukung
+- **Desktop**: Chrome, Firefox, Safari, Edge (versi terbaru)
+- **Mobile**: 
+  - **Android**: Android 7.0 (Nougat) ke atas
+  - **iOS**: iOS 12 ke atas (termasuk iPhone XR, iPhone 11, dll)
+- **Browser Mobile**: Chrome, Safari, Firefox
+
+### Fitur Mobile
+- Tampilan responsive mobile-first design
+- Interface seperti aplikasi native
+- Navigasi soal yang mudah di HP
+- Load cepat untuk koneksi lambat
+
 ## Fitur
 
 ### Admin
@@ -22,8 +37,12 @@ Aplikasi ujian online berbasis PHP dan MySQL untuk sekolah dengan fitur keamanan
 - Landing page dengan list ujian tersedia
 - Verifikasi kode rahasia sebelum ujian
 - Sistem ujian interaktif dengan timer
-- Auto-save jawaban secara berkala
-- Load jawaban tersimpan jika refresh halaman
+- **Alur ujian baru**:
+  1. Input kode rahasia (jika ada)
+  2. Isi identitas siswa (NIS, Nama, Kelas)
+  3. Jawab soal 1 per halaman dengan navigasi nomor
+  4. Auto-save jawaban secara berkala
+  5. Load jawaban tersimpan jika refresh halaman
 - Review jawaban setelah submit
 - Cek riwayat nilai berdasarkan NIS
 
@@ -34,6 +53,14 @@ Aplikasi ujian online berbasis PHP dan MySQL untuk sekolah dengan fitur keamanan
 - Log pelanggaran tab switching
 - Race Condition Protection untuk mencegah double submission saat submit bersamaan
 - Transaksi database dengan locking untuk integritas data
+- Temporary table untuk auto-save tanpa mempengaruhi data final
+
+### Performa
+- Mobile-first design untuk load cepat di HP
+- Pagination 1 soal per halaman
+- Render JavaScript yang dioptimasi
+- Inisialisasi token di background (tidak blocking)
+- Database indexes untuk query cepat
 
 ## Requirements
 
@@ -63,7 +90,7 @@ exam6/
 ├── ujian.php            # Halaman ujian siswa
 ├── review.php           # Review jawaban
 ├── riwayat.php          # Riwayat nilai
-└── docker-compose.yml   # Konfigurasi Docker
+└── docker-compose.yml   # Konfigurasi Docker/Podman
 ```
 
 ## Cara Install
@@ -93,7 +120,10 @@ podman-compose up -d
 4. Import database melalui phpMyAdmin:
    - Database: `backup_db/ujian_online.sql`
 
-5. Login admin:
+5. Jalankan migration untuk performa optimal:
+   - Database: `migrations/06_performance_indexes.sql`
+
+6. Login admin:
    - Username: `admin`
    - Password: `admin123`
 
@@ -133,6 +163,18 @@ Saat membuat/mengedit ujian di admin, tersedia pengaturan keamanan:
 | **Browser Lock** | Deteksi jika siswa switch tab/copy-paste. Akan melakukan auto-submit setelah X pelanggaran |
 | **Device Fingerprint** | Deteksi jika siswa更换设备 (ganti device/browser) |
 
+## Alur Ujian Baru
+
+1. **Halaman Utama**: Siswa melihat list ujian yang tersedia
+2. **Input Kode** (jika diperlukan): Masukkan kode rahasia
+3. **Identitas**: Isi NIS, Nama, Kelas → klik "Mulai Ujian"
+4. **Soal**: Jawab 1 soal per halaman dengan navigasi:
+   - Previous/Next button
+   - Grid nomor soal untuk lompat ke soal tertentu
+   - Indicator warna: abu (belum), hijau (dijawab), biru (aktif)
+5. **Submit**: Klik "Kirim Jawaban" jika sudah selesai
+6. **Hasil**: Lihat skor langsung
+
 ## Akun Default
 
 | Role | Username | Password |
@@ -153,8 +195,8 @@ Saat membuat/mengedit ujian di admin, tersedia pengaturan keamanan:
 
 1. Buka landing page
 2. Jika ujian menggunakan kode rahasia, masukkan kode terlebih dahulu
-3. Isi identitas (NIS, Nama, Kelas)
-4. Jawab semua soal
+3. Isi identitas (NIS, Nama, Kelas) → klik "Mulai Ujian"
+4. Jawab soal satu per satu dengan navigasi
 5. Klik "Kirim Jawaban"
 
 ### Cek Nilai
@@ -168,6 +210,7 @@ Saat membuat/mengedit ujian di admin, tersedia pengaturan keamanan:
 - **Frontend**: Bootstrap 5, Bootstrap Icons
 - **Backend**: PHP 8 Native (Native, no framework)
 - **Database**: MySQL
+- **Container**: Docker/Podman
 
 ## Lisensi
 
