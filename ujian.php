@@ -874,37 +874,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
 <body>
     <!-- Header -->
     <div class="ujian-header">
-        <div class="container position-relative">
-            <div class="row align-items-center">
-                <!-- Kiri: Logo & Nama Sekolah (tapi di tengah untuk HP) -->
-                <div class="col-12 text-center mb-3 mb-md-0">
-                    <div class="school-logo d-inline-flex">
-                        <?php if ($sekolah['logo'] && file_exists('uploads/' . $sekolah['logo'])): ?>
-                            <img src="uploads/<?= $sekolah['logo'] ?>" alt="Logo">
-                        <?php else: ?>
-                            <i class="bi bi-mortarboard-fill" style="font-size: 2rem; color: white;"></i>
-                        <?php endif; ?>
-                    </div>
-                    <div class="text-white fw-bold d-block" style="font-size: 1rem; margin-top: 10px;"><?= htmlspecialchars($sekolah['nama_sekolah']) ?></div>
-                </div>
-                <!-- Tengah: Info Ujian -->
-                <div class="col-12 text-center">
-                    <a href="index.php" class="text-white text-decoration-none mb-2 d-inline-flex align-items-center justify-content-center">
-                        <i class="bi bi-arrow-left me-2"></i>Kembali
-                    </a>
-                    <h2 class="header-title"><?= htmlspecialchars($ujian['judul_ujian']) ?></h2>
-                    <p class="header-subtitle"><?= htmlspecialchars($ujian['deskripsi']) ?></p>
-                    <div class="d-flex flex-wrap gap-2 justify-content-center mt-2">
-                        <span class="header-badge">
-                            <i class="bi bi-question-circle me-1"></i><?= count($soal_list) ?> Soal
-                        </span>
-                        <?php if (isset($ujian['waktu_tersedia']) && $ujian['waktu_tersedia'] > 0): ?>
-                        <span class="header-badge" style="background: #ffc107; color: #333;">
-                            <i class="bi bi-clock me-1"></i><?= $ujian['waktu_tersedia'] ?> menit
-                        </span>
-                        <?php endif; ?>
-                    </div>
-                </div>
+        <div style="text-align: center; padding: 20px 15px;">
+            <div class="school-logo d-inline-flex" style="background: white; border-radius: 50%; width: 70px; height: 70px; align-items: center; justify-content: center; box-shadow: 0 8px 25px rgba(0,0,0,0.2); margin-bottom: 10px;">
+                <?php if ($sekolah['logo'] && file_exists('uploads/' . $sekolah['logo'])): ?>
+                    <img src="uploads/<?= $sekolah['logo'] ?>" alt="Logo" style="width: 50px; height: 50px; object-fit: contain;">
+                <?php else: ?>
+                    <i class="bi bi-mortarboard-fill" style="font-size: 2rem; color: #667eea;"></i>
+                <?php endif; ?>
+            </div>
+            <div style="color: white; font-weight: bold; font-size: 1.1rem; margin-bottom: 15px;"><?= htmlspecialchars($sekolah['nama_sekolah']) ?></div>
+            
+            <a href="index.php" style="color: white; text-decoration: none; display: inline-flex; align-items: center; margin-bottom: 10px;">
+                <i class="bi bi-arrow-left" style="margin-right: 5px;"></i> Kembali
+            </a>
+            
+            <h2 style="color: white; font-weight: 700; font-size: 1.4rem; margin-bottom: 8px;"><?= htmlspecialchars($ujian['judul_ujian']) ?></h2>
+            <p style="color: rgba(255,255,255,0.85); font-size: 0.9rem; margin-bottom: 12px;"><?= htmlspecialchars($ujian['deskripsi']) ?></p>
+            
+            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <span style="background: rgba(255,255,255,0.25); color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem;">
+                    <i class="bi bi-question-circle" style="margin-right: 5px;"></i><?= count($soal_list) ?> Soal
+                </span>
+                <?php if (isset($ujian['waktu_tersedia']) && $ujian['waktu_tersedia'] > 0): ?>
+                <span style="background: #ffc107; color: #333; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem;">
+                    <i class="bi bi-clock" style="margin-right: 5px;"></i><?= $ujian['waktu_tersedia'] ?> menit
+                </span>
+                <?php endif; ?>
             </div>
         </div>
     </div>
