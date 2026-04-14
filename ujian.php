@@ -695,28 +695,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
         <?php endif; ?>
 
         <form method="POST" id="formUjian">
-            <!-- Identitas -->
-            <div class="identitas-card">
-                <h5 class="fw-bold mb-4">
-                    <i class="bi bi-person-badge me-2 text-primary"></i>Identitas Siswa
-                </h5>
-                <div class="row">
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label fw-semibold">NIS <span class="text-danger">*</span></label>
-                        <input type="text" name="nis" class="form-control form-control-lg" required placeholder="Masukkan NIS">
+            <!-- Identitas - Tampil Pertama -->
+            <div id="identitySection">
+                <div class="identitas-card">
+                    <h5 class="fw-bold mb-4">
+                        <i class="bi bi-person-badge me-2 text-primary"></i>Identitas Siswa
+                    </h5>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-semibold">NIS <span class="text-danger">*</span></label>
+                            <input type="text" name="nis" id="nisInput" class="form-control form-control-lg" required placeholder="Masukkan NIS">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-semibold">Nama Lengkap <span class="text-danger">*</span></label>
+                            <input type="text" name="nama" id="namaInput" class="form-control form-control-lg" required placeholder="Masukkan nama">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-semibold">Kelas <span class="text-danger">*</span></label>
+                            <input type="text" name="kelas" id="kelasInput" class="form-control form-control-lg" required placeholder="Contoh: X IPA 1">
+                        </div>
                     </div>
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label fw-semibold">Nama Lengkap <span class="text-danger">*</span></label>
-                        <input type="text" name="nama" class="form-control form-control-lg" required placeholder="Masukkan nama">
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label fw-semibold">Kelas <span class="text-danger">*</span></label>
-                        <input type="text" name="kelas" class="form-control form-control-lg" required placeholder="Contoh: X IPA 1">
+                    <div class="text-center">
+                        <button type="button" class="btn btn-primary btn-lg" onclick="startWithIdentity()">
+                            <i class="bi bi-play-fill me-2"></i>Mulai Ujian
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Daftar Soal -->
+            <!-- Daftar Soal - Muncul Setelah Identitas -->
+            <div id="questionSection" style="display: none;">
             <div id="soalContainer"></div>
             
             <div id="loadingIndicator" class="text-center py-4">
@@ -763,6 +771,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                     <i class="bi bi-send-fill me-2"></i>Kirim Jawaban
                 </button>
             </div>
+            </div><!-- End questionSection -->
         </form>
         </div><!-- End examContent -->
 
@@ -805,12 +814,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                 return;
             }
             
-            console.log('Init - SOAL_DATA:', SOAL_DATA);
+            console.log('Init - SOAL_DATA:', SOAL_DATA.length);
             console.log('Init - HAS_EXAM_CODE:', HAS_EXAM_CODE);
             
             if (!SOAL_DATA || SOAL_DATA.length === 0) {
                 console.error('No questions loaded!');
-                document.getElementById('soalContainer').innerHTML = '<div class="alert alert-danger">Gagal memuat soal. Silakan refresh halaman.</div>';
                 return;
             }
             
@@ -821,18 +829,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             document.getElementById('answeredCount').textContent = '0';
             document.getElementById('totalSoal').textContent = totalSoal;
             
+            const identitySection = document.getElementById('identitySection');
+            const questionSection = document.getElementById('questionSection');
             const examCodeForm = document.getElementById('examCodeForm');
-            const examContent = document.getElementById('examContent');
             
-            if (HAS_EXAM_CODE && examCodeForm && examContent) {
+            if (HAS_EXAM_CODE && examCodeForm) {
                 examCodeForm.style.display = 'block';
-                examContent.style.display = 'none';
-                document.getElementById('soalContainer').innerHTML = '';
-            } else if (!HAS_EXAM_CODE) {
-                document.getElementById('loadingIndicator').style.display = 'none';
-                loadPage(1);
-                startExam();
+                identitySection.style.display = 'none';
+                questionSection.style.display = 'none';
+            } else {
+                identitySection.style.display = 'block';
+                questionSection.style.display = 'none';
             }
+        }
+        
+        function startWithIdentity() {
+            const nis = document.getElementById('nisInput').value.trim();
+            const nama = document.getElementById('namaInput').value.trim();
+            const kelas = document.getElementById('kelasInput').value.trim();
+            
+            if (!nis || !nama || !kelas) {
+                alert('Mohon lengkapi identitas terlebih dahulu!');
+                return;
+            }
+            
+            document.getElementById('identitySection').style.display = 'none';
+            document.getElementById('questionSection').style.display = 'block';
+            document.getElementById('loadingIndicator').style.display = 'none';
+            
+            loadPage(1);
+            startExam();
         }
         
         function shuffleOptions(options) {
@@ -1025,14 +1051,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                 
                 if (data.valid === true) {
                     document.getElementById('examCodeForm').style.display = 'none';
-                    document.getElementById('examContent').style.display = 'block';
-                    document.getElementById('loadingIndicator').style.display = 'none';
-                    
-                    console.log('Loading questions, total:', SOAL_DATA.length);
-                    loadPage(1);
-                    
-                    console.log('Calling startExam...');
-                    startExam();
+                    document.getElementById('identitySection').style.display = 'block';
+                    document.getElementById('questionSection').style.display = 'none';
                 } else {
                     alert(data.message || 'Kode ujian salah!');
 
