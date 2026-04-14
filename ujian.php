@@ -382,273 +382,161 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
     <meta name mobile-web-app-capable content yes>
     <meta name apple-mobile-web-app-capable content yes>
     <meta name apple-mobile-web-app-status-bar-style content default>
-    <title><?= htmlspecialchars($ujian['judul_ujian']) ?> - Ujian Online</title>
-    <link href vendor/bootstrap/bootstrap.min.css rel stylesheet>
-    <link rel stylesheet href vendor/bootstrap-icons/bootstrap-icons.min.css>
-    <link rel preload href https://fonts.gstatic.com crossorigin>
-    <link href https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap rel stylesheet>
+<title><?= htmlspecialchars($ujian['judul_ujian']) ?> - Ujian Online</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <link href="vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="vendor/bootstrap-icons/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
-        * { font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; box-sizing: border-box; }
-        body { background: #f8f9fa; margin: 0; padding: 0; }
+        * { font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; box-sizing: border-box; }
+        body { background: #f0f2f5; margin: 0; padding: 0; }
         img { max-width: 100%; height: auto; }
         
-/* Header Styling */
-.ujian-header {
-    background: linear-gradient(135deg, <?= $sekolah['warna_primer'] ?> 0%, <?= $sekolah['warna_sekunder'] ?> 100%);
-    padding: 30px 20px;
-    margin-bottom: 25px;
-    position: relative;
-    overflow: hidden;
-}
-
-.ujian-header::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-}
-
-.school-logo {
-    width: 70px;
-    height: 70px;
-    background: white;
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.2);
-}
-
-.school-logo img {
-    width: 50px;
-    height: 50px;
-    object-fit: contain;
-}
-
-.header-title {
-    color: white;
-    font-weight: 700;
-    font-size: 1.5rem;
-    margin-bottom: 8px;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.15);
-}
-
-.header-subtitle {
-    color: rgba(255,255,255,0.85);
-    font-size: 0.95rem;
-    margin-bottom: 15px;
-}
-
-.header-badge {
-    background: rgba(255,255,255,0.25);
-    color: white;
-    padding: 8px 16px;
-    border-radius: 25px;
-    font-size: 0.85rem;
-    backdrop-filter: blur(5px);
-    display: inline-block;
-}
-        
-        /* Card Styles */
-        .identitas-card, .soal-card, .soal-navigator {
+        /* Header */
+        .ujian-header {
+            background: linear-gradient(135deg, <?= $sekolah['warna_primer'] ?> 0%, <?= $sekolah['warna_sekunder'] ?> 100%);
+            padding: 25px 15px;
+            text-align: center;
+        }
+        .ujian-header .logo-wrap {
+            display: inline-block;
             background: white;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-            padding: 25px;
-            margin-bottom: 20px;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            line-height: 60px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            margin-bottom: 10px;
         }
-        
-        .soal-card {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-            margin-bottom: 20px;
-            padding: 25px;
-            border: 2px solid transparent;
-            transition: all 0.3s ease;
+        .ujian-header .logo-wrap img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+            vertical-align: middle;
         }
-        
-        .soal-card:hover {
-            border-color: rgba(102, 126, 234, 0.3);
-        }
-        
-        /* Form Styles */
-        .form-control {
-            border-radius: 12px;
-            padding: 12px 16px;
-            border: 2px solid #e9ecef;
+        .ujian-header .school-name {
+            color: white;
+            font-weight: 700;
             font-size: 1rem;
+            margin-bottom: 12px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .ujian-header .exam-title {
+            color: white;
+            font-weight: 700;
+            font-size: 1.2rem;
+            margin-bottom: 5px;
+        }
+        .ujian-header .exam-desc {
+            color: rgba(255,255,255,0.8);
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+        }
+        .ujian-header .badges {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .ujian-header .badge-item {
+            background: rgba(255,255,255,0.25);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            backdrop-filter: blur(4px);
+        }
+        .ujian-header .badge-item.warning {
+            background: #ffc107;
+            color: #333;
+        }
+        .ujian-header .back-link {
+            display: inline-block;
+            color: white;
+            text-decoration: none;
+            font-size: 0.85rem;
+            margin-bottom: 10px;
+            opacity: 0.9;
         }
         
-        .form-control:focus {
+        /* Container */
+        .container { padding: 0 15px; max-width: 600px; }
+        
+        /* Cards */
+        .exam-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .exam-card h5 {
+            color: #1a1a2e;
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        /* Form Inputs */
+        .exam-card .form-control {
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 12px 15px;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+        .exam-card .form-control:focus {
             border-color: #667eea;
-            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
         }
         
-        .btn-primary {
+        .exam-card label {
+            font-weight: 500;
+            font-size: 0.9rem;
+            color: #444;
+            margin-bottom: 6px;
+        }
+        
+        /* Buttons */
+        .btn-start {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             border: none;
             padding: 14px 30px;
             border-radius: 12px;
             font-weight: 600;
+            font-size: 1rem;
+            width: 100%;
+            margin-top: 10px;
         }
-        
-        .btn-primary:hover {
+        .btn-start:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 6px 20px rgba(102,126,234,0.3);
         }
         
-        /* Question Number Badge */
-        .soal-number {
+        .btn-code {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            min-width: 38px;
-            height: 38px;
+            border: none;
+            padding: 12px 24px;
             border-radius: 10px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 1rem;
-            margin-right: 12px;
-        }
-        
-        /* Option Styles */
-        .option-label {
-            cursor: pointer;
-            padding: 14px 18px;
-            border: 2px solid #e9ecef;
-            border-radius: 12px;
-            margin-bottom: 10px;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-        }
-        
-        .option-label:hover { 
-            background: #f8f9fa; 
-            border-color: #667eea;
-            transform: translateX(5px);
-        }
-        
-        .option-label input:checked + .option-letter {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        
-        .option-letter {
-            background: #f1f3f5;
-            color: #495057;
-            min-width: 32px;
-            height: 32px;
-            border-radius: 8px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
             font-weight: 600;
-            margin-right: 12px;
-            transition: all 0.2s;
+            margin-top: 10px;
         }
         
-        .option-content {
-            flex: 1;
-            color: #212529;
-        }
-        
-        /* Progress Indicator */
-        .progress-indicator {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
+        /* Question Card */
+        .soal-card {
             background: white;
-            padding: 12px 20px;
-            border-radius: 14px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            z-index: 100;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            padding: 20px;
+            margin-bottom: 15px;
         }
-        
-        .progress-circle {
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 700;
-            font-size: 0.9rem;
-        }
-        
-/* Mobile Responsive */
-        @media (max-width: 768px) {
-            .ujian-header { padding: 25px 15px; }
-            .school-logo { width: 55px; height: 55px; }
-            .school-logo img { width: 40px; height: 40px; }
-            .header-title { font-size: 1.2rem; }
-            .header-subtitle { font-size: 0.85rem; }
-            .header-badge { padding: 6px 12px; font-size: 0.8rem; }
-        }
-        
-        @media (max-width: 480px) {
-            .ujian-header { padding: 15px 0; margin-bottom: 15px; }
-            .identitas-card, .soal-card, .soal-navigator { padding: 15px; border-radius: 10px; margin-bottom: 12px; }
-            .soal-number { width: 30px; height: 30px; font-size: 0.85rem; margin-right: 10px; }
-            .form-control { padding: 10px 14px; font-size: 0.95rem; }
-            .header-title { font-size: 0.95rem; }
-            .soal-grid .btn { width: 34px; height: 34px; font-size: 0.8rem; }
-            .nav-buttons .btn { padding: 10px 12px; font-size: 0.85rem; }
-        }
-        
-        .soal-card:hover {
-            border-color: rgba(102, 126, 234, 0.3);
-        }
-        
-        .soal-number {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            min-width: 38px;
-            height: 38px;
-            border-radius: 10px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 1rem;
-            margin-right: 12px;
-        }
-        
-        .option-label {
-            cursor: pointer;
-            padding: 15px 20px;
-            border: 2px solid #e9ecef;
-            border-radius: 12px;
-            margin-bottom: 12px;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-        }
-        
-        .option-label:hover { 
-            background: #f8f9fa; 
-            border-color: #667eea;
-            transform: translateX(5px);
-        }
-        
-        .option-label input:checked + .option-content {
-            font-weight: 600;
-        }
-        
-        .option-label:has(input:checked) {
-            background: rgba(102, 126, 234, 0.1);
-            border-color: #667eea;
-        }
-        
-        .option-letter {
+        .soal-card .soal-number {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             width: 32px;
@@ -657,217 +545,154 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-weight: 600;
-            margin-right: 12px;
-            flex-shrink: 0;
+            font-weight: 700;
+            font-size: 0.9rem;
+            margin-right: 10px;
         }
-        
-        .btn-submit {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            padding: 15px 50px;
-            border-radius: 30px;
-            font-weight: 600;
-            font-size: 1.1rem;
-            transition: all 0.3s ease;
-            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
-        }
-        
-        .btn-submit:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
-        }
-        
-        .identitas-card {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-            padding: 25px;
-            margin-bottom: 25px;
-        }
-        
-        .soal-img {
-            max-width: 100%;
-            max-height: 300px;
-            border-radius: 12px;
-            margin: 10px 0;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-        
-        .opsi-img {
-            max-width: 80px;
-            max-height: 60px;
-            border-radius: 8px;
-            margin-left: 10px;
-            object-fit: contain;
-        }
-
-        /* Custom Modal Styles */
-        .modal-confirm {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(102, 126, 234, 0.4);
-        }
-
-        .modal-confirm .modal-header {
-            border-bottom: none;
-            padding-bottom: 0;
-        }
-
-        .modal-confirm .modal-body {
-            padding: 20px 30px;
-        }
-
-        .modal-confirm .modal-footer {
-            border-top: none;
-            padding: 0 30px 30px;
-            justify-content: center;
-        }
-
-        .confirm-icon {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 20px;
-        }
-
-        .confirm-icon i {
-            font-size: 2.5rem;
-            color: white;
-        }
-
-        .btn-confirm-submit {
-            background: white;
-            color: #667eea;
-            border: none;
-            padding: 12px 40px;
-            border-radius: 30px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        .btn-confirm-submit:hover {
-            transform: scale(1.05);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        }
-
-        .btn-cancel {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            border: none;
-            padding: 12px 30px;
-            border-radius: 30px;
+        .soal-card .question {
             font-weight: 500;
-        }
-
-        .btn-cancel:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-
-        /* Progress indicator */
-        .progress-indicator {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            background: white;
-            padding: 15px 25px;
-            border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            z-index: 100;
+            font-size: 1rem;
+            color: #1a1a2e;
+            margin-bottom: 15px;
+            line-height: 1.5;
         }
         
-        /* Navigasi Superior */
+        /* Options */
+        .option-label {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            border: 2px solid #e8e8e8;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .option-label:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+        .option-label input:checked + .option-letter {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .option-letter {
+            background: #f0f0f0;
+            color: #555;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-right: 12px;
+            transition: all 0.2s;
+        }
+        .option-content {
+            flex: 1;
+            color: #333;
+            font-size: 0.95rem;
+        }
+        
+        /* Navigation */
         .soal-navigator {
             background: white;
-            padding: 20px;
             border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            padding: 15px;
+            margin-bottom: 15px;
         }
-        
-        .soal-info .badge {
+        .soal-navigator .nav-info {
+            text-align: center;
+            margin-bottom: 12px;
+            color: #666;
             font-size: 0.9rem;
-            padding: 8px 16px;
         }
-        
-        .nav-buttons .btn {
-            padding: 12px 20px;
+        .soal-navigator .nav-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .soal-navigator .nav-buttons button {
+            flex: 1;
+            padding: 10px;
+            border-radius: 10px;
             font-weight: 500;
-            border-radius: 10px;
-            transition: all 0.2s ease;
+            font-size: 0.9rem;
         }
-        
-        .nav-buttons .btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        .soal-navigator .soal-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
         }
-        
-        .nav-buttons .btn:disabled {
-            opacity: 0.5;
-        }
-        
-        .soal-grid {
-            padding: 15px 0;
-            border-top: 1px solid #f0f0f0;
-            border-bottom: 1px solid #f0f0f0;
-        }
-        
-        .soal-grid .btn {
-            width: 42px;
-            height: 42px;
-            border-radius: 10px;
+        .soal-navigator .soal-grid button {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
             font-weight: 600;
-            font-size: 0.95rem;
-            transition: all 0.2s ease;
-        }
-        
-        .soal-grid .btn:hover:not(.btn-primary) {
-            transform: scale(1.1);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        
-        .soal-grid .btn-success {
-            background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
-            border: none;
-        }
-        
-        .soal-grid .btn-primary {
-            transform: scale(1.1);
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-        }
-        
-        .soal-legend {
             font-size: 0.85rem;
-            color: #6c757d;
         }
         
-        .soal-legend .badge {
-            font-size: 1rem;
-            padding: 4px 8px;
+        /* Progress */
+        .progress-indicator {
+            position: fixed;
+            bottom: 15px;
+            right: 15px;
+            background: white;
+            padding: 10px 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 100;
         }
-
         .progress-circle {
-            width: 50px;
-            height: 50px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
             font-weight: 700;
+            font-size: 0.8rem;
         }
-
+        
         .progress-text {
-            font-weight: 500;
-            color: #333;
+            font-size: 0.85rem;
+            color: #444;
+        }
+        
+        /* Submit Button */
+        .btn-submit {
+            background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+            color: white;
+            border: none;
+            padding: 14px 30px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            width: 100%;
+        }
+        
+/* Responsive Desktop */
+        @media (min-width: 768px) {
+            .container { max-width: 700px; margin: 0 auto; }
+            .ujian-header { padding: 35px 20px; }
+            .ujian-header .exam-title { font-size: 1.5rem; }
+            .soal-card, .exam-card { padding: 25px; border-radius: 20px; }
+            .option-label { padding: 15px 20px; }
+            .btn-start, .btn-submit { width: auto; display: inline-block; }
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -907,19 +732,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
     <div class="container pb-5">
         <!-- Exam Code Form (if required) -->
         <?php if (!empty($ujian['kode_ujian'])): ?>
-        <div id="examCodeForm" class="identitas-card" style="display: none;">
-            <h5 class="fw-bold mb-4">
-                <i class="bi bi-shield-lock me-2 text-primary"></i>Kode Ujian
-            </h5>
-            <div class="row">
-                <div class="col-md-6">
-                    <label class="form-label fw-semibold">Masukkan Kode Ujian <span class="text-danger">*</span></label>
-                    <input type="text" id="kodeUjianInput" class="form-control form-control-lg" placeholder="Masukkan kode rahasia" autocomplete="off">
-                    <button type="button" class="btn btn-primary mt-3" onclick="verifyExamCode()">
-                        <i class="bi bi-check2-circle me-2"></i>Masuk Ujian
-                    </button>
-                </div>
+        <div id="examCodeForm" class="exam-card" style="display: none;">
+            <h5><i class="bi bi-shield-lock text-primary"></i> Kode Ujian</h5>
+            <div class="mb-3">
+                <label class="form-label">Masukkan Kode Ujian <span class="text-danger">*</span></label>
+                <input type="text" id="kodeUjianInput" class="form-control" placeholder="Masukkan kode rahasia" autocomplete="off">
             </div>
+            <button type="button" class="btn-code" onclick="verifyExamCode()">
+                <i class="bi bi-check2-circle me-2"></i>Masuk Ujian
+            </button>
         </div>
         <?php endif; ?>
         
@@ -936,29 +757,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
         <form method="POST" id="formUjian">
             <!-- Identitas - Tampil Pertama -->
             <div id="identitySection">
-                <div class="identitas-card">
-                    <h5 class="fw-bold mb-4">
-                        <i class="bi bi-person-badge me-2 text-primary"></i>Identitas Siswa
-                    </h5>
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label fw-semibold">NIS <span class="text-danger">*</span></label>
-                            <input type="text" name="nis" id="nisInput" class="form-control form-control-lg" required placeholder="Masukkan NIS">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label fw-semibold">Nama Lengkap <span class="text-danger">*</span></label>
-                            <input type="text" name="nama" id="namaInput" class="form-control form-control-lg" required placeholder="Masukkan nama">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label fw-semibold">Kelas <span class="text-danger">*</span></label>
-                            <input type="text" name="kelas" id="kelasInput" class="form-control form-control-lg" required placeholder="Contoh: X IPA 1">
-                        </div>
+                <div class="exam-card">
+                    <h5><i class="bi bi-person-badge text-primary"></i> Identitas Siswa</h5>
+                    <div class="mb-3">
+                        <label class="form-label">NIS <span class="text-danger">*</span></label>
+                        <input type="text" name="nis" id="nisInput" class="form-control" required placeholder="Masukkan NIS">
                     </div>
-                    <div class="text-center">
-                        <button type="button" class="btn btn-primary btn-lg" onclick="startWithIdentity()">
-                            <i class="bi bi-play-fill me-2"></i>Mulai Ujian
-                        </button>
+                    <div class="mb-3">
+                        <label class="form-label">Nama Lengkap <span class="text-danger">*</span></label>
+                        <input type="text" name="nama" id="namaInput" class="form-control" required placeholder="Masukkan nama">
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label">Kelas <span class="text-danger">*</span></label>
+                        <input type="text" name="kelas" id="kelasInput" class="form-control" required placeholder="Contoh: X IPA 1">
+                    </div>
+                    <button type="button" class="btn-start" onclick="startWithIdentity()">
+                        <i class="bi bi-play-fill me-2"></i>Mulai Ujian
+                    </button>
                 </div>
             </div>
 
@@ -966,11 +781,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             <div id="questionSection" style="display: none;">
             <div id="soalContainer"></div>
             
-            <div id="loadingIndicator" class="text-center py-4">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                <p class="mt-2 text-muted">Memuat soal...</p>
+            <div id="loadingIndicator" style="text-align: center; padding: 20px; color: #666;">
+                <div style="border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+                <p style="margin-top: 10px; font-size: 0.9rem;">Memuat soal...</p>
             </div>
             
             <div id="loadMoreSection" class="text-center mb-4" style="display: none;">
@@ -979,15 +792,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                 </button>
             </div>
 
-            <!-- Navigasi Superior -->
-            <div class="soal-navigator mb-4">
-                <!-- Info Halaman Sekarang -->
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div class="soal-info">
-                        <span class="badge bg-primary fs-6 px-3 py-2">
-                            <i class="bi bi-file-text me-1"></i>Soal <span id="currentPage">1</span> dari <span id="totalPages">1</span>
-                        </span>
-                    </div>
+<!-- Navigasi Superior -->
+            <div class="soal-navigator">
+                <div class="nav-info">
+                    <span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 6px 14px; border-radius: 8px; font-size: 0.85rem;">
+                        <i class="bi bi-file-text"></i> Soal <span id="currentPage">1</span> dari <span id="totalPages">1</span>
+                    </span>
+                    <span id="progressMobile" style="color: #666; font-size: 0.8rem; margin-left: 8px; display: none;">(0/0)</span>
+                </div>
+                
+                <div class="nav-buttons">
+                    <button type="button" class="btn btn-outline-secondary" onclick="prevPage()" id="prevBtn" disabled>
+                        <i class="bi bi-chevron-left"></i> Sebelumnya
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="nextPage()" id="nextBtn">
+                        Selanjutnya <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+                
+                <div class="soal-grid" id="soalNumbersContainer">
+                </div>
+            </div>
+
+            <!-- Submit -->
+            <div style="text-align: center; margin-bottom: 20px;" id="submitSection">
+                <button type="button" class="btn-submit" onclick="submitFinal()">
+                    <i class="bi bi-send-fill me-2"></i>Kirim Jawaban
+                </button>
+            </div>
                     <div class="soal-progress-mobile d-md-none">
                         <span class="text-muted small" id="progressMobile">0/0 dijawab</span>
                     </div>
