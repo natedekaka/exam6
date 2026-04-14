@@ -240,32 +240,12 @@ function handleAutoSave($conn, $input) {
         throw new Exception('Anda sudah menyelesaikan ujian ini. Tidak dapat mengubah jawaban.');
     }
     
-    $tableExists = $conn->query("SHOW TABLES LIKE 'jawaban_sementara'");
-    if ($tableExists->num_rows === 0) {
-        $conn->query("
-            CREATE TABLE IF NOT EXISTS `jawaban_sementara` (
-                `id` int NOT NULL AUTO_INCREMENT,
-                `id_ujian` int NOT NULL,
-                `nis` varchar(50) NOT NULL,
-                `nama` varchar(100) DEFAULT NULL,
-                `kelas` varchar(50) DEFAULT NULL,
-                `answers` json DEFAULT NULL,
-                `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-                `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                PRIMARY KEY (`id`),
-                UNIQUE KEY `unique_ujian_nis` (`id_ujian`, `nis`),
-                INDEX `idx_nis` (`nis`),
-                INDEX `idx_ujian` (`id_ujian`)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-        ");
-    }
-    
     $answersJson = json_encode($answers);
     $namaValue = $nama ?? '';
     $kelasValue = $kelas ?? '';
     
     $stmt = $conn->prepare("
-        INSERT INTO jawaban_sementara (id_ujian, nis, nama, kelas, answers)
+        INSERT INTO jawaban_sEMENTARA (id_ujian, nis, nama, kelas, answers)
         VALUES (?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE 
             nama = COALESCE(NULLIF(?, ''), nama),
@@ -279,7 +259,31 @@ function handleAutoSave($conn, $input) {
         $response['message'] = 'Jawaban tersimpan';
         $response['saved_count'] = is_array($answers) ? count($answers) : 0;
     } else {
-        throw new Exception('Failed to save: ' . $stmt->error);
+        $createTable = $conn->query("SHOW TABLES LIKE 'jawaban_sEMENTARA'");
+        if ($createTable->num_rows === 0) {
+            $conn->query("
+                CREATE TABLE IF NOT EXISTS `jawaban_sEMENTARA` (
+                    `id` int NOT NULL AUTO_INCREMENT,
+                    `id_ujian` int NOT NULL,
+                    `nis` varchar(50) NOT NULL,
+                    `nama` varchar(100) DEFAULT NULL,
+                    `kelas` varchar(50) DEFAULT NULL,
+                    `answers` json DEFAULT NULL,
+                    `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`id`),
+                    UNIQUE KEY `unique_ujian_nis` (`id_ujian`, `nis`),
+                    INDEX `idx_nis` (`nis`),
+                    INDEX `idx_ujian` (`id_ujian`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+            ");
+            $stmt->execute();
+            $response['success'] = true;
+            $response['message'] = 'Jawaban tersimpan';
+            $response['saved_count'] = is_array($answers) ? count($answers) : 0;
+        } else {
+            throw new Exception('Failed to save: ' . $stmt->error);
+        }
     }
     $stmt->close();
     
@@ -322,12 +326,17 @@ function handleSubmitFinal($conn, $input) {
         throw new Exception('Soal tidak ditemukan');
     }
     
+    error_log("Submit - Answers received: " . json_encode($answers));
+    error_log("Submit - Total questions: " . count($soal_list));
+    
     $total_skor = 0;
     $detail_jawaban = [];
     
     foreach ($soal_list as $soal_id => $soal) {
-        $jawaban = isset($answers[$soal_id]) ? $answers[$soal_id] : '';
-        $is_correct = ($jawaban === $soal['kunci_jawaban']);
+        $jawaban = isset($answers[(string)$soal_id]) ? $answers[(string)$soal_id] : (isset($answers[$soal_id]) ? $answers[$soal_id] : '');
+        $is_correct = (strtolower($jawaban) === strtolower($soal['kunci_jawaban']));
+        
+        error_log("Question $soal_id: student answer = '$jawaban', correct = '{$soal['kunci_jawaban']}', is_correct = " . ($is_correct ? 'true' : 'false'));
         
         if ($is_correct) {
             $total_skor += $soal['poin'];

@@ -79,9 +79,13 @@ if (isset($ujian['acak_soal']) && $ujian['acak_soal'] === 'ya') {
     shuffle($soal_list);
 }
 
+$soal_per_halaman = 10;
+
 if (count($soal_list) === 0) {
     die("Belum ada soal. Hubungi guru.");
 }
+
+$soal_json = json_encode($soal_list, JSON_HEX_TAG | JSON_HEX_APOS);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
     $nis = trim($_POST['nis']);
@@ -713,59 +717,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             </div>
 
             <!-- Daftar Soal -->
-            <div id="soalSection">
-            <?php $no = 1; foreach ($soal_list as $soal): ?>
-            <div class="soal-card">
-                <div class="d-flex align-items-start mb-3">
-                    <span class="soal-number"><?= $no ?></span>
-                    <div class="flex-grow-1">
-                        <p class="mb-2 fw-medium fs-5"><?= nl2br(htmlspecialchars($soal['pertanyaan'])) ?></p>
-                        <?php if ($soal['gambar_pertanyaan']): ?>
-                            <img src="uploads/<?= $soal['gambar_pertanyaan'] ?>" class="soal-img" alt="Gambar Pertanyaan">
-                        <?php endif; ?>
-                        <small class="text-muted d-block mt-2">
-                            <i class="bi bi-star me-1"></i>Poin: <?= $soal['poin'] ?>
-                        </small>
+            <div id="soalContainer"></div>
+            
+            <div id="loadingIndicator" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-muted">Memuat soal...</p>
+            </div>
+            
+            <div id="loadMoreSection" class="text-center mb-4" style="display: none;">
+                <button type="button" class="btn btn-outline-primary" onclick="loadMoreSoal()">
+                    <i class="bi bi-chevron-down me-2"></i>Lihat Lebih Banyak
+                </button>
+            </div>
+
+            <!-- Navigation -->
+            <div class="soal-nav mb-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="badge bg-secondary">
+                            <span id="currentPage">1</span> / <span id="totalPages">1</span>
+                        </span>
+                    </div>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="prevPage()" id="prevBtn" disabled>
+                            <i class="bi bi-chevron-left"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="nextPage()" id="nextBtn">
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
                     </div>
                 </div>
-                
-                <div class="ms-5">
-                    <?php 
-                    $options = [
-                        'a' => ['text' => $soal['opsi_a'], 'img' => $soal['gambar_a']],
-                        'b' => ['text' => $soal['opsi_b'], 'img' => $soal['gambar_b']],
-                        'c' => ['text' => $soal['opsi_c'], 'img' => $soal['gambar_c']],
-                        'd' => ['text' => $soal['opsi_d'], 'img' => $soal['gambar_d']],
-                        'e' => ['text' => $soal['opsi_e'], 'img' => $soal['gambar_e']]
-                    ];
-                    
-                    if (isset($ujian['acak_opsi']) && $ujian['acak_opsi'] === 'ya') {
-                        $keys = array_keys($options);
-                        shuffle($keys);
-                        $shuffled_options = [];
-                        foreach ($keys as $new_key) {
-                            $shuffled_options[$new_key] = $options[$new_key];
-                        }
-                        $options = $shuffled_options;
-                    }
-                    
-                    foreach ($options as $key => $opt): 
-                    ?>
-                    <label class="option-label">
-                        <input type="radio" name="jawaban_<?= $soal['id'] ?>" value="<?= $key ?>" required class="d-none">
-                        <span class="option-letter"><?= strtoupper($key) ?></span>
-                        <span class="option-content">
-                            <?php if ($opt['img']): ?>
-                                <img src="uploads/<?= $opt['img'] ?>" class="opsi-img" alt="Gambar <?= strtoupper($key) ?>">
-                            <?php else: ?>
-                                <?= htmlspecialchars($opt['text']) ?>
-                            <?php endif; ?>
-                        </span>
-                    </label>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-            <?php $no++; endforeach; ?>
             </div>
 
             <!-- Submit -->
@@ -799,27 +782,159 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
         const API_URL = 'api/submit_jawaban.php';
         const ID_UJIAN = <?= $id_ujian ?>;
         const HAS_EXAM_CODE = <?= !empty($ujian['kode_ujian']) ? 'true' : 'false' ?>;
+        const SOAL_DATA = <?= $soal_json ?>;
+        const ACAK_OPSI = <?= isset($ujian['acak_opsi']) && $ujian['acak_opsi'] === 'ya' ? 'true' : 'false' ?>;
+        const SOAL_PER_HALAMAN = <?= $soal_per_halaman ?>;
+        
+        let currentPage = 1;
+        let displayedSoal = [];
+        let optionsCache = {};
         let answers = {};
         let identitySaved = false;
         let csrfToken = '';
         
         function init() {
-            // Run after DOM is loaded
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', init);
                 return;
             }
             
-            // Show/hide sections based on exam code requirement
-            if (HAS_EXAM_CODE) {
-                const examCodeForm = document.getElementById('examCodeForm');
-                const examContent = document.getElementById('examContent');
-                if (examCodeForm && examContent) {
-                    examContent.style.display = 'none';
-                    examCodeForm.style.display = 'block';
-                }
-            } else {
+            console.log('Init - SOAL_DATA:', SOAL_DATA);
+            console.log('Init - HAS_EXAM_CODE:', HAS_EXAM_CODE);
+            
+            if (!SOAL_DATA || SOAL_DATA.length === 0) {
+                console.error('No questions loaded!');
+                document.getElementById('soalContainer').innerHTML = '<div class="alert alert-danger">Gagal memuat soal. Silakan refresh halaman.</div>';
+                return;
+            }
+            
+            const totalSoal = SOAL_DATA.length;
+            const totalPages = Math.ceil(totalSoal / SOAL_PER_HALAMAN);
+            document.getElementById('totalPages').textContent = totalPages;
+            
+            document.getElementById('answeredCount').textContent = '0';
+            document.getElementById('totalSoal').textContent = totalSoal;
+            
+            const examCodeForm = document.getElementById('examCodeForm');
+            const examContent = document.getElementById('examContent');
+            
+            if (HAS_EXAM_CODE && examCodeForm && examContent) {
+                examCodeForm.style.display = 'block';
+                examContent.style.display = 'none';
+                document.getElementById('soalContainer').innerHTML = '';
+            } else if (!HAS_EXAM_CODE) {
+                document.getElementById('loadingIndicator').style.display = 'none';
+                loadPage(1);
                 startExam();
+            }
+        }
+        
+        function shuffleOptions(options) {
+            const keys = Object.keys(options);
+            const shuffled = {};
+            keys.sort(() => Math.random() - 0.5);
+            keys.forEach(key => shuffled[key] = options[key]);
+            return shuffled;
+        }
+        
+        function renderSoal(soalList) {
+            if (!soalList || soalList.length === 0) {
+                return '<div class="alert alert-warning">Tidak ada soal untuk ditampilkan</div>';
+            }
+            
+            let html = '';
+            let no = (currentPage - 1) * SOAL_PER_HALAMAN + 1;
+            
+            soalList.forEach(function(soal) {
+                let options = {
+                    'a': {text: soal.opsi_a, img: soal.gambar_a},
+                    'b': {text: soal.opsi_b, img: soal.gambar_b},
+                    'c': {text: soal.opsi_c, img: soal.gambar_c},
+                    'd': {text: soal.opsi_d, img: soal.gambar_d},
+                    'e': {text: soal.opsi_e, img: soal.gambar_e}
+                };
+                
+                if (ACAK_OPSI) {
+                    if (!optionsCache[soal.id]) {
+                        optionsCache[soal.id] = shuffleOptions(options);
+                    }
+                    options = optionsCache[soal.id];
+                }
+                
+                html += '<div class="soal-card">';
+                html += '<div class="d-flex align-items-start mb-3">';
+                html += '<span class="soal-number">' + no + '</span>';
+                html += '<div class="flex-grow-1">';
+                html += '<p class="mb-2 fw-medium fs-5">' + soal.pertanyaan.replace(/\n/g, '<br>') + '</p>';
+                if (soal.gambar_pertanyaan) {
+                    html += '<img src="uploads/' + soal.gambar_pertanyaan + '" class="soal-img" alt="Gambar Pertanyaan">';
+                }
+                html += '<small class="text-muted d-block mt-2"><i class="bi bi-star me-1"></i>Poin: ' + soal.poin + '</small>';
+                html += '</div></div>';
+                html += '<div class="ms-5">';
+                
+                for (const [key, opt] of Object.entries(options)) {
+                    const checked = answers[soal.id] === key ? 'checked' : '';
+                    html += '<label class="option-label">';
+                    html += '<input type="radio" name="jawaban_' + soal.id + '" value="' + key + '" ' + checked + ' class="d-none" onchange="updateProgress()">';
+                    html += '<span class="option-letter">' + key.toUpperCase() + '</span>';
+                    html += '<span class="option-content">';
+                    if (opt.img) {
+                        html += '<img src="uploads/' + opt.img + '" class="opsi-img" alt="Gambar ' + key.toUpperCase() + '">';
+                    } else {
+                        html += opt.text;
+                    }
+                    html += '</span></label>';
+                }
+                
+                html += '</div></div>';
+                no++;
+            });
+            
+            return html;
+        }
+        
+        function loadPage(page) {
+            console.log('loadPage called, page:', page, 'SOAL_DATA.length:', SOAL_DATA ? SOAL_DATA.length : 0);
+            
+            if (!SOAL_DATA || SOAL_DATA.length === 0) {
+                document.getElementById('soalContainer').innerHTML = '<div class="alert alert-warning">Tidak ada soal</div>';
+                return;
+            }
+            
+            const totalPages = Math.ceil(SOAL_DATA.length / SOAL_PER_HALAMAN);
+            if (page < 1 || page > totalPages) {
+                console.error('Invalid page:', page);
+                return;
+            }
+            
+            const start = (page - 1) * SOAL_PER_HALAMAN;
+            const end = Math.min(start + SOAL_PER_HALAMAN, SOAL_DATA.length);
+            const soalPage = SOAL_DATA.slice(start, end);
+            
+            console.log('Rendering', soalPage.length, 'questions');
+            const html = renderSoal(soalPage);
+            document.getElementById('soalContainer').innerHTML = html;
+            document.getElementById('currentPage').textContent = page;
+            
+            document.getElementById('prevBtn').disabled = page === 1;
+            document.getElementById('nextBtn').disabled = page === Math.ceil(SOAL_DATA.length / SOAL_PER_HALAMAN);
+            
+            updateProgress();
+        }
+        
+        function nextPage() {
+            const totalPages = Math.ceil(SOAL_DATA.length / SOAL_PER_HALAMAN);
+            if (currentPage < totalPages) {
+                currentPage++;
+                loadPage(currentPage);
+            }
+        }
+        
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                loadPage(currentPage);
             }
         }
         
@@ -858,6 +973,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             }
             
             try {
+                console.log('Verifying code:', kode);
                 const res = await fetch(API_URL, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -867,19 +983,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                         kode_ujian: kode
                     })
                 });
+                
+                if (!res.ok) {
+                    throw new Error('Network error: ' + res.status);
+                }
+                
                 const data = await res.json();
                 console.log('Verify response:', data);
                 
-                if (data.valid) {
+                if (data.valid === true) {
                     document.getElementById('examCodeForm').style.display = 'none';
                     document.getElementById('examContent').style.display = 'block';
+                    document.getElementById('loadingIndicator').style.display = 'none';
+                    
+                    console.log('Loading questions, total:', SOAL_DATA.length);
+                    loadPage(1);
+                    
                     console.log('Calling startExam...');
                     startExam();
                 } else {
                     alert(data.message || 'Kode ujian salah!');
+
+
                 }
             } catch (e) {
-                alert('Gagal memverifikasi kode. Silakan coba lagi.');
+                console.error('Verify error:', e);
+                alert('Gagal memverifikasi kode. Silakan coba lagi. Error: ' + e.message);
             }
         }
         
@@ -1213,19 +1342,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                 return;
             }
             
-            const totalSoal = <?= count($soal_list) ?>;
-            const answered = new Set();
+            const totalSoal = SOAL_DATA.length;
+            const answeredCount = Object.keys(answers).length;
             
-            document.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
-                const soalId = radio.name.replace('jawaban_', '');
-                answers[soalId] = radio.value;
-                answered.add(soalId);
-            });
-            
-            if (answered.size < totalSoal) {
-                alert('Mohon jawab semua soal terlebih dahulu!\nSoal terjawab: ' + answered.size + '/' + totalSoal);
+            if (answeredCount < totalSoal) {
+                alert('Mohon jawab semua soal terlebih dahulu!\nSoal terjawab: ' + answeredCount + '/' + totalSoal);
                 return;
             }
+            
+            console.log('Submitting answers:', answers);
+            console.log('Total answered:', answeredCount);
             
             const btn = document.querySelector('.btn-submit');
             const originalText = btn.innerHTML;
@@ -1391,25 +1517,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
         // Progress indicator
         const radioButtons = document.querySelectorAll('input[type="radio"]');
         const answeredCount = document.getElementById('answeredCount');
-        const totalSoal = document.getElementById('totalSoal');
-        const progressPercent = document.getElementById('progressPercent');
-        
         function updateProgress() {
+            const radioButtons = document.querySelectorAll('input[type="radio"]');
             const answered = new Set();
             radioButtons.forEach(radio => {
                 if (radio.checked) {
                     answered.add(radio.name);
                     const soalId = radio.name.replace('jawaban_', '');
+                    answers[soalId] = radio.value;
+                    console.log('Saved answer:', soalId, '=', radio.value);
                     autoSaveAnswer(soalId, radio.value);
                 }
             });
             
-            const total = parseInt(totalSoal.textContent);
+            const total = SOAL_DATA.length;
             const count = answered.size;
             const percent = Math.round((count / total) * 100);
             
-            answeredCount.textContent = count;
-            progressPercent.textContent = percent + '%';
+            document.getElementById('answeredCount').textContent = count;
+            document.getElementById('progressPercent').textContent = percent + '%';
             
             const circle = document.querySelector('.progress-circle');
             if (percent === 100) {
@@ -1420,10 +1546,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                 circle.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
             }
         }
-        
-        radioButtons.forEach(radio => {
-            radio.addEventListener('change', updateProgress);
-        });
         
         // Save identity on input change
         ['nis', 'nama', 'kelas'].forEach(field => {
@@ -1458,7 +1580,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             
             if (waktuTersedia <= 0) {
                 alert('Waktu ujian telah habis! Jawaban akan otomatis dikirim.');
-                document.getElementById('formUjian').submit();
+                doSubmitFinal();
                 return;
             }
             waktuTersedia--;

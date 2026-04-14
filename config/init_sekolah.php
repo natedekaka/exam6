@@ -68,6 +68,39 @@ function initConcurrencyControl($conn) {
     if ($result->num_rows === 0) {
         $conn->query("ALTER TABLE soal ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
     }
+    
+    $table_check = $conn->query("SHOW TABLES LIKE 'jawaban_sEMENTARA'");
+    if ($table_check->num_rows === 0) {
+        $conn->query("CREATE TABLE IF NOT EXISTS `jawaban_sEMENTARA` (
+            `id` int NOT NULL AUTO_INCREMENT,
+            `id_ujian` int NOT NULL,
+            `nis` varchar(50) NOT NULL,
+            `nama` varchar(100) DEFAULT NULL,
+            `kelas` varchar(50) DEFAULT NULL,
+            `answers` json DEFAULT NULL,
+            `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `unique_ujian_nis` (`id_ujian`, `nis`),
+            INDEX `idx_nis` (`nis`),
+            INDEX `idx_ujian` (`id_ujian`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci");
+    }
+    
+    $table_check = $conn->query("SHOW TABLES LIKE 'exam_violations'");
+    if ($table_check->num_rows === 0) {
+        $conn->query("CREATE TABLE IF NOT EXISTS `exam_violations` (
+            `id` INT NOT NULL AUTO_INCREMENT,
+            `id_ujian` INT NOT NULL,
+            `nis` VARCHAR(50) NOT NULL,
+            `jenis_violation` VARCHAR(50) NOT NULL,
+            `detail` TEXT,
+            `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            INDEX `idx_ujian_nis` (`id_ujian`, `nis`),
+            INDEX `idx_created` (`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci");
+    }
 }
 
 initConcurrencyControl($conn);

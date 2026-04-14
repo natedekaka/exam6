@@ -15,6 +15,8 @@ if ($conn->connect_error) {
 
 $conn->set_charset("utf8mb4");
 
+$conn->options(MYSQLI_OPT_CONNECT_TIMEOUT, 10);
+
 require_once __DIR__ . '/db_helper.php';
 $db = new DBHelper($conn);
 ?>

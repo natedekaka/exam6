@@ -6,6 +6,40 @@ require_once 'config/init_sekolah.php';
 
 $sekolah = getKonfigurasiSekolah($conn);
 $ujian_list = $conn->query("SELECT * FROM ujian WHERE status = 'aktif' ORDER BY tgl_dibuat DESC");
+
+$ujian_ids = [];
+$ujian_array = [];
+while ($row = $ujian_list->fetch_assoc()) {
+    $ujian_ids[] = $row['id'];
+    $ujian_array[$row['id']] = $row;
+}
+
+$soal_counts = [];
+$waktu_counts = [];
+if (!empty($ujian_ids)) {
+    $ids_placeholder = implode(',', array_fill(0, count($ujian_ids), '?'));
+    
+    $stmt = $conn->prepare("SELECT id_ujian, COUNT(*) as total FROM soal WHERE id_ujian IN ($ids_placeholder) GROUP BY id_ujian");
+    $stmt->bind_param(str_repeat('i', count($ujian_ids)), ...$ujian_ids);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    while ($row = $result->fetch_assoc()) {
+        $soal_counts[$row['id_ujian']] = $row['total'];
+    }
+    $stmt->close();
+    
+    $result_cols = $conn->query("SHOW COLUMNS FROM ujian LIKE 'waktu_tersedia'");
+    if ($result_cols && $result_cols->num_rows > 0) {
+        $stmt = $conn->prepare("SELECT id, waktu_tersedia FROM ujian WHERE id IN ($ids_placeholder)");
+        $stmt->bind_param(str_repeat('i', count($ujian_ids)), ...$ujian_ids);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            $waktu_counts[$row['id']] = $row['waktu_tersedia'] ?? 0;
+        }
+        $stmt->close();
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -191,9 +225,9 @@ $ujian_list = $conn->query("SELECT * FROM ujian WHERE status = 'aktif' ORDER BY 
                 </div>
             </div>
             
-            <?php if ($ujian_list->num_rows > 0): ?>
+            <?php if (!empty($ujian_array)): ?>
             <div class="row g-4">
-                <?php while ($ujian = $ujian_list->fetch_assoc()): ?>
+                <?php foreach ($ujian_array as $ujian): ?>
                 <div class="col-md-6 col-lg-4">
                     <div class="ujian-card">
                         <div class="card-header">
@@ -216,33 +250,15 @@ $ujian_list = $conn->query("SELECT * FROM ujian WHERE status = 'aktif' ORDER BY 
                                 <span><?= date('d M Y', strtotime($ujian['tgl_dibuat'])) ?></span>
                             </div>
                             
-                            <?php
-                            // Hitung jumlah soal
-                            $stmt = $conn->prepare("SELECT COUNT(*) as total FROM soal WHERE id_ujian = ?");
-                            $stmt->bind_param("i", $ujian['id']);
-                            $stmt->execute();
-                            $jml_soal = $stmt->get_result()->fetch_assoc()['total'];
-                            $stmt->close();
-                            ?>
-                            
                             <div class="d-flex align-items-center mb-3 text-muted small">
                                 <div class="info-icon me-2">
                                     <i class="bi bi-question-circle"></i>
                                 </div>
-                                <span><?= $jml_soal ?> Soal</span>
+                                <span><?= $soal_counts[$ujian['id']] ?? 0 ?> Soal</span>
                             </div>
                             
                             <?php 
-                            $result_cols = $conn->query("SHOW COLUMNS FROM ujian LIKE 'waktu_tersedia'");
-                            $waktu = 0;
-                            if ($result_cols && $result_cols->num_rows > 0) {
-                                $stmt = $conn->prepare("SELECT waktu_tersedia FROM ujian WHERE id = ?");
-                                $stmt->bind_param("i", $ujian['id']);
-                                $stmt->execute();
-                                $result_waktu = $stmt->get_result()->fetch_assoc();
-                                $waktu = $result_waktu['waktu_tersedia'] ?? 0;
-                                $stmt->close();
-                            }
+                            $waktu = $waktu_counts[$ujian['id']] ?? 0;
                             ?>
                             <?php if ($waktu > 0): ?>
                             <div class="d-flex align-items-center mb-4 text-muted small">
@@ -259,7 +275,7 @@ $ujian_list = $conn->query("SELECT * FROM ujian WHERE status = 'aktif' ORDER BY 
                         </div>
                     </div>
                 </div>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
             </div>
             <?php else: ?>
             <div class="empty-state">
