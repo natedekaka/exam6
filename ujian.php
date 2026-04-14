@@ -374,17 +374,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
 ?>
 
 <!DOCTYPE html>
-<html lang="id">
+<html lang id>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset UTF-8>
+    <meta name viewport content width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no>
+    <meta name description content Ujian Online>
+    <meta name mobile-web-app-capable content yes>
+    <meta name apple-mobile-web-app-capable content yes>
+    <meta name apple-mobile-web-app-status-bar-style content default>
     <title><?= htmlspecialchars($ujian['judul_ujian']) ?> - Ujian Online</title>
-    <link href="vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="vendor/bootstrap-icons/bootstrap-icons.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href vendor/bootstrap/bootstrap.min.css rel stylesheet>
+    <link rel stylesheet href vendor/bootstrap-icons/bootstrap-icons.min.css>
     <style>
-        * { font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-        body { background: #f8f9fa; }
+        * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+        body { background: #f8f9fa; -webkit-font-smoothing: antialiased; }
         
         .school-logo {
             width: 60px;
@@ -900,9 +903,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                 return;
             }
             
-            console.log('Init - SOAL_DATA:', SOAL_DATA.length);
-            console.log('Init - HAS_EXAM_CODE:', HAS_EXAM_CODE);
-            
             if (!SOAL_DATA || SOAL_DATA.length === 0) {
                 console.error('No questions loaded!');
                 return;
@@ -947,77 +947,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             document.getElementById('loadingIndicator').style.display = 'none';
             
             loadPage(1);
-            startExam();
+            
+            // Initialize in background without waiting
+            setTimeout(initExamFeatures, 500);
         }
         
-        function shuffleOptions(options) {
-            const keys = Object.keys(options);
-            const shuffled = {};
-            keys.sort(() => Math.random() - 0.5);
-            keys.forEach(key => shuffled[key] = options[key]);
-            return shuffled;
-        }
+        function initExamFeatures() {
+            fetch(API_URL, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({action: 'generate_token'})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.csrf_token) csrfToken = data.csrf_token;
+            })
+            .catch(e => console.log('Token init skipped'));
+            
+            const savedNis = localStorage.getItem('exam_nis');
+            if (savedNis) {
+                checkCompletion(savedNis);
+            }
+}
         
         function renderSoal(soalList) {
             if (!soalList || soalList.length === 0) {
-                return '<div class="alert alert-warning">Tidak ada soal untuk ditampilkan</div>';
+                return '<div class=alert alert-warning>Tidak ada soal untuk ditampilkan</div>';
             }
             
             let html = '';
             let no = (currentPage - 1) * SOAL_PER_HALAMAN + 1;
             
-            soalList.forEach(function(soal) {
-                let options = {
-                    'a': {text: soal.opsi_a, img: soal.gambar_a},
-                    'b': {text: soal.opsi_b, img: soal.gambar_b},
-                    'c': {text: soal.opsi_c, img: soal.gambar_c},
-                    'd': {text: soal.opsi_d, img: soal.gambar_d},
-                    'e': {text: soal.opsi_e, img: soal.gambar_e}
-                };
+            for (let i = 0; i < soalList.length; i++) {
+                const soal = soalList[i];
+                let options = {a:{t:soal.opsi_a,i:soal.gambar_a},b:{t:soal.opsi_b,i:soal.gambar_b},c:{t:soal.opsi_c,i:soal.gambar_c},d:{t:soal.opsi_d,i:soal.gambar_d},e:{t:soal.opsi_e,i:soal.gambar_e}};
                 
                 if (ACAK_OPSI) {
                     if (!optionsCache[soal.id]) {
-                        optionsCache[soal.id] = shuffleOptions(options);
+                        const keys = Object.keys(options);
+                        for (let j = keys.length - 1; j > 0; j--) {
+                            const k = Math.floor(Math.random() * (j + 1));
+                            [keys[j], keys[k]] = [keys[k], keys[j]];
+                        }
+                        const shuffled = {};
+                        keys.forEach(k => shuffled[k] = options[k]);
+                        optionsCache[soal.id] = shuffled;
                     }
                     options = optionsCache[soal.id];
                 }
                 
-                html += '<div class="soal-card">';
-                html += '<div class="d-flex align-items-start mb-3">';
-                html += '<span class="soal-number">' + no + '</span>';
-                html += '<div class="flex-grow-1">';
-                html += '<p class="mb-2 fw-medium fs-5">' + soal.pertanyaan.replace(/\n/g, '<br>') + '</p>';
-                if (soal.gambar_pertanyaan) {
-                    html += '<img src="uploads/' + soal.gambar_pertanyaan + '" class="soal-img" alt="Gambar Pertanyaan">';
-                }
-                html += '<small class="text-muted d-block mt-2"><i class="bi bi-star me-1"></i>Poin: ' + soal.poin + '</small>';
-                html += '</div></div>';
-                html += '<div class="ms-5">';
+                const soalId = soal.id;
+                const answered = answers[soalId] || '';
                 
-                for (const [key, opt] of Object.entries(options)) {
-                    const checked = answers[soal.id] === key ? 'checked' : '';
-                    html += '<label class="option-label">';
-                    html += '<input type="radio" name="jawaban_' + soal.id + '" value="' + key + '" ' + checked + ' class="d-none" onchange="updateProgress()">';
-                    html += '<span class="option-letter">' + key.toUpperCase() + '</span>';
-                    html += '<span class="option-content">';
-                    if (opt.img) {
-                        html += '<img src="uploads/' + opt.img + '" class="opsi-img" alt="Gambar ' + key.toUpperCase() + '">';
-                    } else {
-                        html += opt.text;
-                    }
+                html += '<div class=soal-card><div class=d-flex align-items-start mb-3><span class=soal-number>' + no + '</span><div class=flex-grow-1><p class=mb-2 fw-medium>' + soal.pertanyaan.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') + '</p>';
+                if (soal.gambar_pertanyaan) html += '<img src=uploads/' + soal.gambar_pertanyaan + ' class=soal-img alt=Gambar alt=true>';
+                html += '<small class=text-muted d-block mt-2>Poin: ' + soal.poin + '</small></div></div><div class=ms-5>';
+                
+                for (const key in options) {
+                    const opt = options[key];
+                    const checked = answered === key ? ' checked' : '';
+                    html += '<label class=option-label><input type=radio name=jawaban_' + soalId + ' value=' + key + checked + ' class=d-none onchange=updateProgress()><span class=option-letter>' + key.toUpperCase() + '</span><span class=option-content>';
+                    if (opt.i) html += '<img src=uploads/' + opt.i + ' class=opsi-img alt=Opsi ' + key + ' alt=true>';
+                    else html += opt.t.replace(/</g,'&lt;').replace(/>/g,'&gt;');
                     html += '</span></label>';
                 }
                 
                 html += '</div></div>';
                 no++;
-            });
+            }
             
-            return html;
+return html;
         }
         
         function loadPage(page) {
-            console.log('loadPage called, page:', page, 'SOAL_DATA.length:', SOAL_DATA ? SOAL_DATA.length : 0);
-            
             if (!SOAL_DATA || SOAL_DATA.length === 0) {
                 document.getElementById('soalContainer').innerHTML = '<div class="alert alert-warning">Tidak ada soal</div>';
                 return;
@@ -1033,7 +1035,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             const end = Math.min(start + SOAL_PER_HALAMAN, SOAL_DATA.length);
             const soalPage = SOAL_DATA.slice(start, end);
             
-            console.log('Rendering', soalPage.length, 'questions');
             const html = renderSoal(soalPage);
             document.getElementById('soalContainer').innerHTML = html;
             document.getElementById('currentPage').textContent = page;
