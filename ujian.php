@@ -883,12 +883,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
         const ACAK_OPSI = <?= isset($ujian['acak_opsi']) && $ujian['acak_opsi'] === 'ya' ? 'true' : 'false' ?>;
         const SOAL_PER_HALAMAN = <?= $soal_per_halaman ?>;
         
+        const STORAGE_KEY = 'exam_' + ID_UJIAN;
+        const IDENTITY_KEY = 'exam_identity_' + ID_UJIAN;
         let currentPage = 1;
         let displayedSoal = [];
         let optionsCache = {};
         let answers = {};
         let identitySaved = false;
         let csrfToken = '';
+        let lastSaved = null;
         
         function init() {
             if (document.readyState === 'loading') {
@@ -922,6 +925,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                 examContent.style.display = 'block';
                 identitySection.style.display = 'block';
                 questionSection.style.display = 'none';
+            }
+            
+            loadFromLocalStorage();
+        }
+        
+        function loadFromLocalStorage() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    if (data.answers) {
+                        answers = data.answers;
+                        optionsCache = data.optionsCache || {};
+                        currentPage = data.currentPage || 1;
+                        lastSaved = data.timestamp;
+                        
+                        if (data.identity) {
+                            document.getElementById('nisInput').value = data.identity.nis || '';
+                            document.getElementById('namaInput').value = data.identity.nama || '';
+                            document.getElementById('kelasInput').value = data.identity.kelas || '';
+                            identitySaved = true;
+                            localStorage.setItem('exam_nis', data.identity.nis);
+                        }
+                        
+                        updateProgress();
+                        document.getElementById('autoSaveStatus').innerHTML = 
+                            '<i class="bi bi-cloud-check-fill text-info"></i> Jawaban dipulihkan dari cache';
+                    }
+                }
+            } catch (e) {
+                console.log('Tidak ada cache tersimpan');
+            }
+        }
+        
+        function saveToLocalStorage() {
+            try {
+                const data = {
+                    answers: answers,
+                    optionsCache: optionsCache,
+                    currentPage: currentPage,
+                    timestamp: Date.now()
+                };
+                if (identitySaved) {
+                    data.identity = {
+                        nis: document.getElementById('nisInput').value,
+                        nama: document.getElementById('namaInput').value,
+                        kelas: document.getElementById('kelasInput').value
+                    };
+                }
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            } catch (e) {
+                console.log('Gagal menyimpan ke localStorage');
             }
         }
         
@@ -1401,7 +1456,10 @@ return html;
         function autoSaveAnswer(soalId, answer) {
             const nis = document.querySelector('input[name="nis"]').value.trim();
             if (!nis || !identitySaved) return;
-            if (!csrfToken) return; // Skip if no CSRF token yet
+            if (!csrfToken) {
+                saveToLocalStorage();
+                return;
+            }
             
             answers[soalId] = answer;
             
@@ -1533,6 +1591,7 @@ return html;
             .then(data => {
                 if (data.success) {
                     localStorage.removeItem('exam_nis');
+                    localStorage.removeItem(STORAGE_KEY);
                     showSuccessPage(data.skor, nis, nama, kelas);
                 } else {
                     alert('Error: ' + data.message);
@@ -1696,6 +1755,21 @@ return html;
             } else {
                 circle.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
             }
+            
+            // Auto-save ke localStorage
+            clearTimeout(window.localSaveTimer);
+            window.localSaveTimer = setTimeout(() => {
+                saveToLocalStorage();
+                if (document.getElementById('autoSaveStatus')) {
+                    document.getElementById('autoSaveStatus').innerHTML = 
+                        '<i class="bi bi-device-hdd-fill text-secondary"></i> Cache lokal';
+                }
+                setTimeout(() => {
+                    if (document.getElementById('autoSaveStatus')) {
+                        document.getElementById('autoSaveStatus').innerHTML = '';
+                    }
+                }, 2000);
+            }, 1000);
         }
         
         // Save identity on input change

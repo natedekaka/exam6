@@ -267,6 +267,7 @@ if (isset($_SESSION['import_message'])) {
             <a href="tambah_soal.php"><i class="bi bi-question-circle-fill"></i> Bank Soal</a>
             <a href="import_soal.php" class="active"><i class="bi bi-upload me-2"></i>Import Massal</a>
             <a href="rekap_nilai.php"><i class="bi bi-bar-chart-fill"></i> Rekap Nilai</a>
+            <a href="monitor_ujian.php"><i class="bi bi-display"></i> Monitor Ujian</a>
             <a href="profil_sekolah.php"><i class="bi bi-building"></i> Profil Sekolah</a>
             <a href="logout.php" class="text-warning mt-3"><i class="bi bi-box-arrow-right"></i> Logout (<?= htmlspecialchars($_SESSION['admin_username']) ?>)</a>
         </div>

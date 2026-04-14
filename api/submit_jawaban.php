@@ -244,15 +244,9 @@ function handleAutoSave($conn, $input) {
     $namaValue = $nama ?? '';
     $kelasValue = $kelas ?? '';
     
-    $stmt = $conn->prepare("
-        INSERT INTO jawaban_sEMENTARA (id_ujian, nis, nama, kelas, answers)
-        VALUES (?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE 
-            nama = COALESCE(NULLIF(?, ''), nama),
-            kelas = COALESCE(NULLIF(?, ''), kelas),
-            answers = ?, updated_at = NOW()
-    ");
-    $stmt->bind_param("issssss", $id_ujian, $nis, $namaValue, $kelasValue, $namaValue, $kelasValue, $answersJson);
+    $sql = "INSERT INTO jawaban_sEMENTARA (id_ujian, nis, nama, kelas, answers) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE nama = VALUES(nama), kelas = VALUES(kelas), answers = VALUES(answers), updated_at = NOW()";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("issss", $id_ujian, $nis, $namaValue, $kelasValue, $answersJson);
     
     if ($stmt->execute()) {
         $response['success'] = true;
