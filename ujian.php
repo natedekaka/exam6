@@ -1000,7 +1000,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             setTimeout(initExamFeatures, 500);
         }
         
-        function initExamFeatures() {
+function initExamFeatures() {
             fetch(API_URL, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -1009,6 +1009,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             .then(r => r.json())
             .then(data => {
                 if (data.csrf_token) csrfToken = data.csrf_token;
+                
+                <?php if (!empty($ujian['enable_browser_lock']) && $ujian['enable_browser_lock'] === 'ya'): ?>
+                initBrowserLock();
+                <?php endif; ?>
+                <?php if (!empty($ujian['enable_device_check']) && $ujian['enable_device_check'] === 'ya'): ?>
+                checkDeviceFingerprint();
+                <?php endif; ?>
             })
             .catch(e => console.log('Token init skipped'));
             
@@ -1016,7 +1023,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             if (savedNis) {
                 checkCompletion(savedNis);
             }
-}
+        }
         
         function renderSoal(soalList) {
             if (!soalList || soalList.length === 0) {
