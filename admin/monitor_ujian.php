@@ -73,6 +73,28 @@ if ($id_ujian_terpilih > 0) {
         }
     }
     $stmt->close();
+
+$violation_data = [];
+if ($id_ujian_terpilih > 0) {
+    $result = $conn->query("
+        SELECT v.nis, v.jenis_violation, v.detail, v.created_at, h.nama, h.kelas
+        FROM exam_violations v
+        LEFT JOIN hasil_ujian h ON v.nis = h.nis AND v.id_ujian = h.id_ujian
+        WHERE v.id_ujian = $id_ujian_terpilih
+        ORDER BY v.created_at DESC
+    ");
+    while ($row = $result->fetch_assoc()) {
+        $violation_data[] = $row;
+    }
+    
+    $violation_summary = [];
+    foreach ($violation_data as $v) {
+        $nis = $v['nis'];
+        if (!isset($violation_summary[$nis])) {
+            $violation_summary[$nis] = ['nama' => $v['nama'] ?? '', 'kelas' => $v['kelas'] ?? '', 'count' => 0, 'types' => []];
+        $violation_summary[$nis]['count']++;
+        $violation_summary[$nis]['types'][] = $v['jenis_violation'];
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -241,6 +263,73 @@ if ($id_ujian_terpilih > 0) {
                     <p class="mt-3 text-muted">Belum ada siswa yang memulai ujian ini</p>
                 </div>
             </div>
+            <?php endif; ?>
+            
+            <?php if ($id_ujian_terpilih > 0 && !empty($violation_data)): ?>
+            <div class="card mt-4 border-danger">
+                <div class="card-header bg-danger text-white py-3">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Pelanggaran Tersedia (<?= count($violation_data) ?>)</h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>No</th>
+                                <th>NIS</th>
+                                <th>Nama</th>
+                                <th>Kelas</th>
+                                <th>Jenis Pelanggaran</th>
+                                <th>Detail</th>
+                                <th>Waktu</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php $no = 1; foreach ($violation_data as $v): ?>
+                            <tr class="<?= $v['jenis_violation'] === 'tab_switch' ? 'table-warning' : '' ?>">
+                                <td><?= $no++ ?></td>
+                                <td><?= htmlspecialchars($v['nis']) ?></td>
+                                <td><?= htmlspecialchars($v['nama'] ?? '-') ?></td>
+                                <td><?= htmlspecialchars($v['kelas'] ?? '-') ?></td>
+                                <td>
+                                    <?php 
+                                    $badge_map = [
+                                        'tab_switch' => 'bg-warning',
+                                        'idle_too_long' => 'bg-info',
+                                        'window_blur' => 'bg-secondary',
+                                        'right_click' => 'bg-dark',
+                                        'copy_paste' => 'bg-primary',
+                                        'orientation_change' => 'bg-light text-dark'
+                                    ];
+                                    $badge_class = $badge_map[$v['jenis_violation']] ?? 'bg-secondary';
+                                    ?>
+                                    <span class="badge <?= $badge_class ?>"><?= htmlspecialchars($v['jenis_violation']) ?></span>
+                                </td>
+                                <td><small><?= htmlspecialchars($v['detail'] ?? '-') ?></small></td>
+                                <td><small><?= date('H:i:s', strtotime($v['created_at'])) ?></small></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <?php if (!empty($violation_summary)): ?>
+            <div class="card mt-3">
+                <div class="card-body py-2">
+                    <h6 class="mb-2"><i class="bi bi-person-x"></i> Ringkasan per Siswa</h6>
+                    <div class="d-flex flex-wrap gap-2">
+                        <?php foreach ($violation_summary as $nis => $vs): ?>
+                        <span class="badge bg-light text-dark p-2">
+                            <strong><?= htmlspecialchars($nis) ?></strong> 
+                            <?= htmlspecialchars($vs['nama'] ?? '') ?> 
+                            - <?= $vs['count'] ?>x
+                            <small class="text-muted">(<?= implode(', ', array_unique($vs['types'])) ?>)</small>
+                        </span>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>
