@@ -1262,6 +1262,25 @@ return html;
         function initBrowserLock() {
             let violationCount = 0;
             const maxViolations = <?= (int)($ujian['max_violations'] ?? 3) ?>;
+            let idleTimer = null;
+            let lastActivity = Date.now();
+            const idleLimit = 60000;
+            
+            function checkIdle() {
+                const now = Date.now();
+                if (now - lastActivity > idleLimit) {
+                    violationCount++;
+                    logViolation('idle_too_long', 'Siswa tidak aktif terlalu lama');
+                    alert(`Peringatan: Anda terdeteksi tidak aktif!\nPelanggaran: ${violationCount}/${maxViolations}\nJawaban akan disubmit otomatis jika continue.`);
+                    if (violationCount >= maxViolations) {
+                        submitFinal();
+                        return;
+                    }
+                }
+                lastActivity = now;
+            }
+            
+            setInterval(checkIdle, 10000);
             
             document.addEventListener('visibilitychange', function() {
                 if (document.hidden) {
@@ -1269,13 +1288,48 @@ return html;
                     logViolation('tab_switch', 'Siswa meninggalkan tab ujian');
                     
                     if (violationCount >= maxViolations) {
-                        alert('Anda terlalu banyak切换标签. Jawaban akan disubmit otomatis!');
+                        alert('Anda terlalu banyak meninggalkan tab. Jawaban akan disubmit!');
                         submitFinal();
                     } else {
                         const remaining = maxViolations - violationCount;
-                        alert(`Peringatan: Anda meninggalkan tab ujian!\nPelanggaran: ${violationCount}/${maxViolations}\nSisa: ${remaining}x sebelum submit otomatis`);
+                        alert(`Peringatan: Anda meninggalkan tab!\nPelanggaran: ${violationCount}/${maxViolations}\nSisa: ${remaining}x`);
                     }
                 }
+                lastActivity = Date.now();
+            });
+            
+            window.addEventListener('blur', function() {
+                violationCount++;
+                logViolation('window_blur', 'Siswa keluar dari window/aplikasi');
+                
+                if (violationCount >= maxViolations) {
+                    alert('Anda terlalu banyak seringkali keluar. Jawaban disubmit!');
+                    submitFinal();
+                } else {
+                    const remaining = maxViolations - violationCount;
+                    alert(`Peringatan: Ketidakaktifan terdeteksi!\nPelanggaran: ${violationCount}/${maxViolations}`);
+                }
+                lastActivity = Date.now();
+            });
+            
+            window.addEventListener('focus', function() {
+                lastActivity = Date.now();
+            });
+            
+            window.addEventListener('orientationchange', function() {
+                logViolation('orientation_change', 'HP dirotasi');
+            });
+            
+            document.addEventListener('touchstart', function() {
+                lastActivity = Date.now();
+            }, {passive: true});
+            
+            document.addEventListener('click', function() {
+                lastActivity = Date.now();
+            });
+            
+            document.addEventListener('keydown', function() {
+                lastActivity = Date.now();
             });
             
             document.addEventListener('contextmenu', function(e) {
@@ -1293,6 +1347,12 @@ return html;
             document.addEventListener('cut', function(e) {
                 e.preventDefault();
                 logViolation('cut', 'Siswa mencoba memotong teks');
+                return false;
+            });
+            
+            document.addEventListener('paste', function(e) {
+                e.preventDefault();
+                logViolation('paste', 'Siswa mencoba paste');
                 return false;
             });
         }
