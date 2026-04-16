@@ -108,14 +108,18 @@ foreach ($violation_data as $v) {
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { font-family: 'Poppins', system-ui, -apple-system, sans-serif; }
-        body { background: #f0f2f5; margin: 0; }
-        .sidebar {
-            width: 260px;
-            min-height: 100vh;
-            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+        body { background: #f1f5f9; margin: 0; }
+        .sidebar { 
+            width: 260px; 
+            min-height: 100vh; 
+            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 1000;
             padding: 0;
-            flex-shrink: 0;
         }
+        .main-content { margin-left: 260px; padding: 25px; background: #f1f5f9; min-height: 100vh; }
         .sidebar-menu { padding: 20px 0; }
         .sidebar-menu a {
             display: block;
@@ -148,7 +152,7 @@ foreach ($violation_data as $v) {
     </style>
 </head>
 <body>
-    <div class="container-fluid" style="display:flex;">
+    <div class="d-flex">
         <div class="sidebar">
             <div class="text-center py-4" style="background: rgba(0,0,0,0.1);">
                 <div style="width: 80px; height: 80px; background: white; border-radius: 50%; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center;">
