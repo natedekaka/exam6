@@ -73,6 +73,7 @@ if ($id_ujian_terpilih > 0) {
         }
     }
     $stmt->close();
+}
 
 $violation_data = [];
 if ($id_ujian_terpilih > 0) {
