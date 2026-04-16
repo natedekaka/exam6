@@ -74,8 +74,6 @@ if ($id_ujian_terpilih > 0) {
     }
     $stmt->close();
 }
-
-$violation_data = [];
 if ($id_ujian_terpilih > 0) {
     $result = $conn->query("
         SELECT v.nis, v.jenis_violation, v.detail, v.created_at, h.nama, h.kelas
@@ -87,15 +85,15 @@ if ($id_ujian_terpilih > 0) {
     while ($row = $result->fetch_assoc()) {
         $violation_data[] = $row;
     }
-    
-    $violation_summary = [];
-    foreach ($violation_data as $v) {
-        $nis = $v['nis'];
-        if (!isset($violation_summary[$nis])) {
-            $violation_summary[$nis] = ['nama' => $v['nama'] ?? '', 'kelas' => $v['kelas'] ?? '', 'count' => 0, 'types' => []];
-        $violation_summary[$nis]['count']++;
-        $violation_summary[$nis]['types'][] = $v['jenis_violation'];
+}
+$violation_summary = [];
+foreach ($violation_data as $v) {
+    $nis = $v['nis'];
+    if (!isset($violation_summary[$nis])) {
+        $violation_summary[$nis] = ['nama' => $v['nama'] ?? '', 'kelas' => $v['kelas'] ?? '', 'count' => 0, 'types' => []];
     }
+    $violation_summary[$nis]['count']++;
+    $violation_summary[$nis]['types'][] = $v['jenis_violation'];
 }
 ?>
 <!DOCTYPE html>
