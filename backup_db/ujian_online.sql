@@ -201,6 +201,8 @@ CREATE TABLE `soal` (
   `gambar_e` varchar(255) DEFAULT NULL,
   `kunci_jawaban` enum('a','b','c','d','e') NOT NULL,
   `poin` int DEFAULT '10',
+  `kategori` varchar(100) DEFAULT NULL,
+  `timer_soal` int DEFAULT '0',
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `id_ujian` (`id_ujian`),
