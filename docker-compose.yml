@@ -2,6 +2,7 @@ services:
   app:
     image: docker.io/library/php:8.2-apache
     container_name: exam6-app
+    user: root
     ports:
       - "8024:80"
     volumes:
@@ -14,6 +15,7 @@ services:
     command: >
       bash -c "docker-php-ext-install mysqli pdo pdo_mysql &&
              a2enmod rewrite &&
+             chmod -R 777 /var/www/html/uploads &&
              apache2-foreground"
 
   db:
