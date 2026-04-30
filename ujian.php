@@ -1062,8 +1062,8 @@ function initExamFeatures() {
                     const opt = options[key];
                     const checked = answered === key ? ' checked' : '';
                     html += '<label class=option-label><input type=radio name=jawaban_' + soalId + ' value=' + key + checked + ' class=d-none onchange=updateProgress()><span class=option-letter>' + key.toUpperCase() + '</span><span class=option-content>';
-                    if (opt.i) html += '<img src=uploads/' + opt.i + ' class=opsi-img alt=Opsi ' + key + ' alt=true>';
-                    else html += opt.t.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                    if (opt.t) html += '<span class=opsi-text>' + opt.t.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</span>';
+                    if (opt.i) html += '<img src=uploads/' + opt.i + ' class=opsi-img alt=Opsi ' + key + '>';
                     html += '</span></label>';
                 }
                 
