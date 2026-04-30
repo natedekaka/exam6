@@ -839,7 +839,7 @@ if (isset($_GET['edit'])) {
                             <label class="form-label fw-semibold">Judul Ujian <span class="text-danger">*</span></label>
                             <input type="text" name="judul_ujian" class="form-control" required 
                                    value="<?= $edit_ujian ? htmlspecialchars($edit_ujian['judul_ujian']) : '' ?>"
-                                   placeholder="Contoh: Ujian Matematika Semester 1">
+                                   placeholder="Contoh: Ujian Informatika Semester 1">
                         </div>
                         
                         <div class="col-md-3 mb-3">

@@ -5,6 +5,7 @@ uploads/*
 # Ignore docker data
 migrations/*
 !migrations/.gitkeep
+!migrations/*.sql
 
 # Ignore system files
 .DS_Store

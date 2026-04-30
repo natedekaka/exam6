@@ -802,7 +802,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Kelas <span class="text-danger">*</span></label>
-                        <input type="text" name="kelas" id="kelasInput" class="form-control" required placeholder="Contoh: X IPA 1">
+                        <input type="text" name="kelas" id="kelasInput" class="form-control" required placeholder="Contoh: X-1">
                     </div>
                     <button type="button" class="btn-start" onclick="startWithIdentity()">
                         <i class="bi bi-play-fill me-2"></i>Mulai Ujian
