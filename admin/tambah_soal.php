@@ -221,16 +221,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_soal'])) {
             if (empty($message)) {
                 if ($edit_id > 0) {
                     $stmt = $conn->prepare("UPDATE soal SET pertanyaan=?, gambar_pertanyaan=?, opsi_a=?, gambar_a=?, opsi_b=?, gambar_b=?, opsi_c=?, gambar_c=?, opsi_d=?, gambar_d=?, opsi_e=?, gambar_e=?, kunci_jawaban=?, poin=?, kategori=?, timer_soal=? WHERE id=?");
-                    $stmt->bind_param("sssssssssssssiisi", $pertanyaan, $gambar_pertanyaan, $opsi_a, $gambar_a, $opsi_b, $gambar_b, $opsi_c, $gambar_c, $opsi_d, $gambar_d, $opsi_e, $gambar_e, $kunci, $poin, $kategori, $timer_soal, $edit_id);
+                    $stmt->bind_param("sssssssssssssisii", $pertanyaan, $gambar_pertanyaan, $opsi_a, $gambar_a, $opsi_b, $gambar_b, $opsi_c, $gambar_c, $opsi_d, $gambar_d, $opsi_e, $gambar_e, $kunci, $poin, $kategori, $timer_soal, $edit_id);
                     $message = "Soal berhasil diperbarui!";
                 } else {
                     $stmt = $conn->prepare("INSERT INTO soal (id_ujian, pertanyaan, gambar_pertanyaan, opsi_a, gambar_a, opsi_b, gambar_b, opsi_c, gambar_c, opsi_d, gambar_d, opsi_e, gambar_e, kunci_jawaban, poin, kategori, timer_soal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                    $stmt->bind_param("isssssssssssssiis", $id_ujian, $pertanyaan, $gambar_pertanyaan, $opsi_a, $gambar_a, $opsi_b, $gambar_b, $opsi_c, $gambar_c, $opsi_d, $gambar_d, $opsi_e, $gambar_e, $kunci, $poin, $kategori, $timer_soal);
+                    $stmt->bind_param("isssssssssssssisi", $id_ujian, $pertanyaan, $gambar_pertanyaan, $opsi_a, $gambar_a, $opsi_b, $gambar_b, $opsi_c, $gambar_c, $opsi_d, $gambar_d, $opsi_e, $gambar_e, $kunci, $poin, $kategori, $timer_soal);
                     $message = "Soal berhasil ditambahkan!";
                 }
                 
                 if ($stmt->execute()) {
                     $message_type = 'success';
+                } else {
+                    $message = "Gagal menyimpan: " . $stmt->error;
+                    $message_type = 'danger';
                 }
                 $stmt->close();
             }
