@@ -95,62 +95,119 @@ exam6/
 
 ## Cara Install
 
-### Cara 1: Podman/Docker (Recommended)
+### Cara 1: Docker (Recommended)
 
-1. Clone repository:
+1. **Clone repository:**
 ```bash
 git clone https://github.com/natedekaka/exam6.git
 cd exam6
 ```
 
-2. Jalankan Podman/Docker:
+2. **Jalankan Docker containers:**
 ```bash
-podman-compose up -d
-# atau docker-compose up -d
+docker-compose up -d
+# atau untuk Docker Compose v2:
+docker compose up -d
 ```
+   
+   Containers yang berjalan:
+   - `exam6-app` : PHP 8.2 Apache (port 8024)
+   - `exam6-db` : MySQL 8.0 (port 3313)
+   - `exam6-pma` : phpMyAdmin (port 8025)
 
-3. Buka browser:
+3. **Setup Database (Otomatis):**
+   - Database `ujian_online` sudah otomatis dibuat saat container `db` pertama kali jalan
+   - File SQL di folder `migrations/` otomatis dijalankan
+   - **Tambahan:** Jalankan migration manual untuk update struktur terbaru:
+   
+   ```bash
+   # Masuk ke container db
+   docker exec -it exam6-db mysql -uroot -prootpass ujian_online
+   
+   # Atau via phpMyAdmin: http://localhost:8025
+   # Server: db
+   # Username: root
+   # Password: rootpass
+   # Database: ujian_online
+   ```
+   
+   Lalu import file SQL berikut di phpMyAdmin atau mysql client:
+   - `migrations/07_add_kategori_timer_soal.sql` (Menambah kolom kategori & timer_soal)
+
+4. **Atau import database lengkap via phpMyAdmin:**
+   - Buka http://localhost:8025
+   - Server: `db`, Username: `root`, Password: `rootpass`
+   - Buat database `ujian_online` jika belum ada
+   - Import file: `backup_db/ujian_online.sql` (Sudah termasuk struktur terbaru dengan kolom kategori & timer_soal)
+
+5. **Set permission folder uploads:**
+   - Container otomatis set permission 777 saat start (sudah diatur di docker-compose.yml)
+   - Jika manual: `chmod -R 777 uploads/`
+
+6. **Akses aplikasi:**
    - **Aplikasi**: http://localhost:8024
    - **phpMyAdmin**: http://localhost:8025
-     - Server: `db`
-     - Username: `user`
-     - Password: `pass123`
-     - Database: `ujian_online`
 
-4. Import database melalui phpMyAdmin:
-   - Database: `backup_db/ujian_online.sql`
-
-5. Jalankan migration untuk performa optimal:
-   - Database: `migrations/06_performance_indexes.sql`
-
-6. Login admin:
+7. **Login Admin Default:**
    - Username: `admin`
    - Password: `admin123`
 
+---
+
 ### Cara 2: Manual (XAMPP/LAMPP)
 
-1. Clone/download ke folder web server:
+1. **Clone/download ke folder web server:**
 ```bash
 git clone https://github.com/natedekaka/exam6.git
+# atau download ZIP dan ekstrak ke htdocs (XAMPP) / var/www/html (LAMPP)
 ```
 
-2. Buat database:
+2. **Buat database MySQL:**
 ```sql
 CREATE DATABASE ujian_online CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-3. Import database melalui phpMyAdmin:
-   - Database: `backup_db/ujian_online.sql`
+3. **Import database:**
+   - Buka phpMyAdmin atau MySQL client
+   - Pilih database `ujian_online`
+   - Import file: `backup_db/ujian_online.sql`
+   - **Penting:** File SQL sudah termasuk kolom `kategori` dan `timer_soal`
 
-4. Konfigurasi database di `config/database.php`:
-```php
-$host = 'localhost';
-$user = 'root';
-$pass = ''; // password MySQL Anda
-$db   = 'ujian_online';
+4. **Atau jalankan migration terpisah:**
+```sql
+-- Jalankan di MySQL client atau phpMyAdmin
+ALTER TABLE soal ADD COLUMN IF NOT EXISTS kategori VARCHAR(100) DEFAULT NULL AFTER poin;
+ALTER TABLE soal ADD COLUMN IF NOT EXISTS timer_soal INT DEFAULT 0 AFTER kategori;
 ```
 
-5. Akses: http://localhost/exam6
+5. **Konfigurasi database di `config/database.php`:**
+```php
+$host = 'localhost';     // atau '127.0.0.1'
+$user = 'root';          // user MySQL Anda
+$password = '';         // password MySQL Anda (kosongkan jika XAMPP default)
+$database = 'ujian_online';
+$port = '3306';         // port MySQL (default 3306)
+```
+
+6. **Set permission folder uploads:**
+```bash
+chmod -R 777 /path/to/exam6/uploads/
+```
+
+7. **Akses aplikasi:**
+   - http://localhost/exam6 (jika di htdocs/XAMPP)
+   - http://localhost (jika di var/www/html)
+
+---
+
+### Verifikasi Instalasi
+
+1. Buka http://localhost:8024 (Docker) atau http://localhost/exam6 (Manual)
+2. Login admin: `admin` / `admin123`
+3. Buat ujian baru di menu "Manajemen Ujian"
+4. Tambah soal di menu "Bank Soal" (bisa text saja atau dengan gambar)
+5. Import soal massal via CSV (menu "Import Massal") - pastikan format CSV sesuai template
+6. Siswa bisa akses ujian dari landing page
 
 ## Pengaturan Keamanan Ujian
 
