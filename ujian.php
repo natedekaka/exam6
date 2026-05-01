@@ -980,27 +980,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             }
         }
         
-        function startWithIdentity() {
-            const nis = document.getElementById('nisInput').value.trim();
-            const nama = document.getElementById('namaInput').value.trim();
-            const kelas = document.getElementById('kelasInput').value.trim();
-            
-            if (!nis || !nama || !kelas) {
-                alert('Mohon lengkapi identitas terlebih dahulu!');
-                return;
-            }
-            
-            document.getElementById('identitySection').style.display = 'none';
-            document.getElementById('questionSection').style.display = 'block';
-            document.getElementById('loadingIndicator').style.display = 'none';
-            
-            loadPage(1);
-            
-            // Initialize in background without waiting
-            setTimeout(initExamFeatures, 500);
-        }
+         function startWithIdentity() {
+             const nis = document.getElementById('nisInput').value.trim();
+             const nama = document.getElementById('namaInput').value.trim();
+             const kelas = document.getElementById('kelasInput').value.trim();
+             
+             if (!nis || !nama || !kelas) {
+                 alert('Mohon lengkapi identitas terlebih dahulu!');
+                 return;
+             }
+             
+             document.getElementById('identitySection').style.display = 'none';
+             document.getElementById('questionSection').style.display = 'block';
+             document.getElementById('loadingIndicator').style.display = 'none';
+             
+             loadPage(1);
+             
+             // Reset submission flag and activate fullscreen mode
+             isSubmittingExam = false;
+             enterFullscreen();
+             
+             // Initialize in background without waiting
+             setTimeout(initExamFeatures, 500);
+         }
+         
+         function enterFullscreen() {
+             const elem = document.documentElement;
+             if (elem.requestFullscreen) {
+                 elem.requestFullscreen().catch(e => console.log('Fullscreen request failed:', e));
+             } else if (elem.webkitRequestFullscreen) { /* Safari */
+                 elem.webkitRequestFullscreen();
+             } else if (elem.msRequestFullscreen) { /* IE11 */
+                 elem.msRequestFullscreen();
+             }
+         }
+         
+         function exitFullscreen() {
+             if (document.fullscreenElement) {
+                 if (document.exitFullscreen) {
+                     document.exitFullscreen();
+                 } else if (document.webkitExitFullscreen) { /* Safari */
+                     document.webkitExitFullscreen();
+                 } else if (document.msExitFullscreen) { /* IE11 */
+                     document.msExitFullscreen();
+                 }
+             }
+         }
         
 function initExamFeatures() {
+            // Fetch client IP address
+            fetch('https://api.ipify.org?format=json')
+                .then(r => r.json())
+                .then(data => {
+                    localStorage.setItem('exam_ip', data.ip);
+                })
+                .catch(() => {
+                    localStorage.setItem('exam_ip', '');
+                });
+
             fetch(API_URL, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -1259,14 +1296,73 @@ return html;
             localStorage.setItem('exam_fp', fp);
         }
         
+        let isSubmittingExam = false; // Flag to track intentional submission
+        let examFinished = false; // Flag to indicate exam is completed
+        
         function initBrowserLock() {
+            // Skip if exam already finished
+            if (examFinished) return;
+            
             let violationCount = 0;
             const maxViolations = <?= (int)($ujian['max_violations'] ?? 3) ?>;
             let idleTimer = null;
             let lastActivity = Date.now();
             const idleLimit = 60000;
+            let isFullscreen = !!document.fullscreenElement;
+            
+            // Detect fullscreen change
+            document.addEventListener('fullscreenchange', function() {
+                // Skip if exam finished
+                if (examFinished) return;
+                
+                const wasFullscreen = isFullscreen;
+                isFullscreen = !!document.fullscreenElement;
+                
+                // Skip violation if this is intentional (exam submission)
+                if (wasFullscreen && !isFullscreen && !isSubmittingExam) {
+                    violationCount++;
+                    logViolation('exit_fullscreen', 'Siswa keluar dari mode fullscreen');
+                    
+                    if (violationCount >= maxViolations) {
+                        alert('Anda terlalu sering keluar dari fullscreen. Jawaban akan disubmit!');
+                        submitFinal();
+                    } else {
+                        const remaining = maxViolations - violationCount;
+                        alert(`Peringatan: Anda keluar dari fullscreen!\nPelanggaran: ${violationCount}/${maxViolations}\nSisa: ${remaining}x`);
+                        // Re-enter fullscreen after warning
+                        setTimeout(enterFullscreen, 1000);
+                    }
+                }
+            });
+            
+            // Safari compatibility
+            document.addEventListener('webkitfullscreenchange', function() {
+                // Skip if exam finished
+                if (examFinished) return;
+                
+                const wasFullscreen = isFullscreen;
+                isFullscreen = !!document.webkitFullscreenElement;
+                
+                // Skip violation if this is intentional (exam submission)
+                if (wasFullscreen && !isFullscreen && !isSubmittingExam) {
+                    violationCount++;
+                    logViolation('exit_fullscreen', 'Siswa keluar dari mode fullscreen (Safari)');
+                    
+                    if (violationCount >= maxViolations) {
+                        alert('Anda terlalu sering keluar dari fullscreen. Jawaban akan disubmit!');
+                        submitFinal();
+                    } else {
+                        const remaining = maxViolations - violationCount;
+                        alert(`Peringatan: Anda keluar dari fullscreen!\nPelanggaran: ${violationCount}/${maxViolations}\nSisa: ${remaining}x`);
+                        setTimeout(enterFullscreen, 1000);
+                    }
+                }
+            });
             
             function checkIdle() {
+                // Skip if exam finished
+                if (examFinished) return;
+                
                 const now = Date.now();
                 if (now - lastActivity > idleLimit) {
                     violationCount++;
@@ -1283,6 +1379,9 @@ return html;
             setInterval(checkIdle, 10000);
             
             document.addEventListener('visibilitychange', function() {
+                // Skip if exam finished
+                if (examFinished) return;
+                
                 if (document.hidden) {
                     violationCount++;
                     logViolation('tab_switch', 'Siswa meninggalkan tab ujian');
@@ -1299,6 +1398,9 @@ return html;
             });
             
             window.addEventListener('blur', function() {
+                // Skip if exam finished
+                if (examFinished) return;
+                
                 violationCount++;
                 logViolation('window_blur', 'Siswa keluar dari window/aplikasi');
                 
@@ -1313,44 +1415,53 @@ return html;
             });
             
             window.addEventListener('focus', function() {
+                if (examFinished) return;
                 lastActivity = Date.now();
             });
             
             window.addEventListener('orientationchange', function() {
+                if (examFinished) return;
                 logViolation('orientation_change', 'HP dirotasi');
             });
             
             document.addEventListener('touchstart', function() {
+                if (examFinished) return;
                 lastActivity = Date.now();
             }, {passive: true});
             
             document.addEventListener('click', function() {
+                if (examFinished) return;
                 lastActivity = Date.now();
             });
             
             document.addEventListener('keydown', function() {
+                if (examFinished) return;
                 lastActivity = Date.now();
             });
             
             document.addEventListener('contextmenu', function(e) {
+                if (examFinished) return;
                 e.preventDefault();
                 logViolation('right_click', 'Siswa mencoba klik kanan');
                 return false;
             });
             
             document.addEventListener('copy', function(e) {
+                if (examFinished) return;
                 e.preventDefault();
                 logViolation('copy_paste', 'Siswa mencoba menyalin teks');
                 return false;
             });
             
             document.addEventListener('cut', function(e) {
+                if (examFinished) return;
                 e.preventDefault();
                 logViolation('cut', 'Siswa mencoba memotong teks');
                 return false;
             });
             
             document.addEventListener('paste', function(e) {
+                if (examFinished) return;
                 e.preventDefault();
                 logViolation('paste', 'Siswa mencoba paste');
                 return false;
@@ -1452,15 +1563,30 @@ return html;
         }
         
         function showAlreadyCompleted(result) {
-            document.getElementById('formUjian').innerHTML = `
-                <div class="alert alert-warning text-center py-5">
-                    <i class="bi bi-exclamation-triangle-fill" style="font-size: 3rem;"></i>
-                    <h3 class="mt-3">Anda sudah mengerjakan ujian ini</h3>
-                    <p class="mb-2">Skor Anda: <strong>${result.skor}</strong></p>
-                    <p class="text-muted">Tanggal: ${new Date(result.tanggal).toLocaleString('id-ID')}</p>
-                    <a href="index.php" class="btn btn-primary mt-3">Kembali ke Halaman Utama</a>
-                </div>
-            `;
+            // Check if student can retake (has saved answers but can retake)
+            if (result.can_retake) {
+                document.getElementById('formUjian').innerHTML = `
+                    <div class="alert alert-info text-center py-5">
+                        <i class="bi bi-arrow-repeat" style="font-size: 3rem;"></i>
+                        <h3 class="mt-3">Anda Dapat Mengerjakan Ulang</h3>
+                        <p class="mb-2">Jawaban tersimpan ditemukan. Anda dapat mengerjakan ulang ujian ini.</p>
+                        <button class="btn btn-primary mt-3" onclick="startWithIdentity()">
+                            <i class="bi bi-play-fill me-2"></i>Mulai Ujian Ulang
+                        </button>
+                        <a href="index.php" class="btn btn-outline-secondary mt-3 ms-2">Kembali ke Halaman Utama</a>
+                    </div>
+                `;
+            } else {
+                document.getElementById('formUjian').innerHTML = `
+                    <div class="alert alert-warning text-center py-5">
+                        <i class="bi bi-exclamation-triangle-fill" style="font-size: 3rem;"></i>
+                        <h3 class="mt-3">Anda sudah mengerjakan ujian ini</h3>
+                        <p class="mb-2">Skor Anda: <strong>${result.skor}</strong></p>
+                        <p class="text-muted">Tanggal: ${new Date(result.tanggal).toLocaleString('id-ID')}</p>
+                        <a href="index.php" class="btn btn-primary mt-3">Kembali ke Halaman Utama</a>
+                    </div>
+                `;
+            }
             document.getElementById('progressIndicator').style.display = 'none';
         }
         
@@ -1540,6 +1666,8 @@ return html;
                         id_ujian: ID_UJIAN,
                         nis: nis,
                         answers: answers,
+                        ip_address: localStorage.getItem('exam_ip') || '',
+                        device_fingerprint: localStorage.getItem('exam_fp') || '',
                         csrf_token: csrfToken,
                         expected_token: csrfToken
                     })
@@ -1629,6 +1757,10 @@ return html;
             console.log('Submitting answers:', answers);
             console.log('Total answered:', answeredCount);
             
+            // Set flags BEFORE anything else
+            isSubmittingExam = true;
+            examFinished = true; // Disable ALL violation detection
+            
             const btn = document.querySelector('.btn-submit');
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Mengirim...';
@@ -1637,7 +1769,10 @@ return html;
             console.log('Submitting with csrfToken:', csrfToken);
             console.log('Answers:', answers);
             
-            fetch(API_URL, {
+            // Exit fullscreen before submitting
+            exitFullscreen();
+             
+             fetch(API_URL, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({

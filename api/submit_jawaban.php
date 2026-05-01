@@ -192,6 +192,21 @@ function handleCheckCompletion($conn, $input) {
             'skor' => $row['total_skor'],
             'tanggal' => $row['created_at']
         ];
+        
+        // Check if student can retake (has saved answers in jawaban_sementara)
+        $tableExists = $conn->query("SHOW TABLES LIKE 'jawaban_sementara'");
+        if ($tableExists && $tableExists->num_rows > 0) {
+            $stmt2 = $conn->prepare("SELECT answers, nama, kelas FROM jawaban_sementara WHERE id_ujian = ? AND nis = ? LIMIT 1");
+            $stmt2->bind_param("is", $id_ujian, $nis);
+            $stmt2->execute();
+            $result2 = $stmt2->get_result();
+            
+            if ($row2 = $result2->fetch_assoc()) {
+                $response['can_retake'] = true;
+                $response['message'] = 'Anda dapat mengerjakan ulang dengan jawaban tersimpan';
+            }
+            $stmt2->close();
+        }
     }
     $stmt->close();
     

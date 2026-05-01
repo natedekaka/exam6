@@ -205,6 +205,20 @@ if (isset($_POST['batch_remove_remedi']) && isset($_POST['selected_ids']) && iss
     header('Location: ?ujian=' . $id_ujian . '&batch_removed=' . $count);
     exit;
 }
+
+if (isset($_POST['delete_all']) && isset($_POST['id_ujian_batch'])) {
+    $id_ujian = (int)$_POST['id_ujian_batch'];
+
+    $stmt = $conn->prepare("DELETE FROM hasil_ujian WHERE id_ujian = ?");
+    $stmt->bind_param("i", $id_ujian);
+    if ($stmt->execute()) {
+        $count = $stmt->affected_rows;
+        $stmt->close();
+        header('Location: ?ujian=' . $id_ujian . '&deleted_all=' . $count);
+        exit;
+    }
+    $stmt->close();
+}
 ?>
 
 <!DOCTYPE html>
@@ -652,6 +666,49 @@ if (isset($_POST['batch_remove_remedi']) && isset($_POST['selected_ids']) && iss
                 </div>
             </div>
         </div>
+        
+        <?php 
+        // Calculate grade distribution
+        $grades = ['A' => 0, 'B' => 0, 'C' => 0, 'D' => 0, 'E' => 0];
+        foreach ($all_results as $r) {
+            $skor = $r['total_skor'];
+            if ($skor >= 85) $grades['A']++;
+            elseif ($skor >= 70) $grades['B']++;
+            elseif ($skor >= 55) $grades['C']++;
+            elseif ($skor >= 40) $grades['D']++;
+            else $grades['E']++;
+        }
+        ?>
+        <div class="row mt-3 animate-fade-in">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body py-3">
+                        <div class="d-flex gap-3 flex-wrap justify-content-center">
+                            <div class="text-center">
+                                <div class="fw-bold text-success" style="font-size: 1.5rem;"><?= $grades['A'] ?></div>
+                                <div class="text-muted small">A (85+)</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="fw-bold text-primary" style="font-size: 1.5rem;"><?= $grades['B'] ?></div>
+                                <div class="text-muted small">B (70-84)</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="fw-bold text-info" style="font-size: 1.5rem;"><?= $grades['C'] ?></div>
+                                <div class="text-muted small">C (55-69)</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="fw-bold text-warning" style="font-size: 1.5rem;"><?= $grades['D'] ?></div>
+                                <div class="text-muted small">D (40-54)</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="fw-bold text-danger" style="font-size: 1.5rem;"><?= $grades['E'] ?></div>
+                                <div class="text-muted small">E (<40)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
         <?php endif; ?>
         
         <form method="GET" id="filterForm">
@@ -696,8 +753,14 @@ if (isset($_POST['batch_remove_remedi']) && isset($_POST['selected_ids']) && iss
                             <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Cari...">
                         </div>
                     </div>
-                    <div class="col-md-auto ms-auto">
+                    <div class="col-md-auto ms-auto d-flex gap-2 align-items-center">
                         <span class="badge bg-primary"><?= $stats['total'] ?> peserta</span>
+                        <a href="ekspor_excel.php?ujian=<?= $selected_ujian ?>" class="btn btn-success btn-sm">
+                            <i class="bi bi-file-excel"></i> Export Excel
+                        </a>
+                        <button type="button" class="btn btn-danger btn-sm" id="btnHapusSemua" onclick="confirmDeleteAll()" <?= $stats['total'] == 0 ? 'disabled' : '' ?>>
+                            <i class="bi bi-trash"></i> Hapus Semua
+                        </button>
                     </div>
                 </div>
             </div>
@@ -969,6 +1032,27 @@ if (isset($_POST['batch_remove_remedi']) && isset($_POST['selected_ids']) && iss
                 return false;
             }
             return confirm('Apakah Anda yakin ingin ' + (action === 'remedi' ? 'memberi izin remedi' : 'mencabut izin remedi') + ' kepada ' + checked.length + ' siswa?');
+        }
+
+        function confirmDeleteAll() {
+            if (!confirm('Apakah Anda yakin ingin menghapus SEMUA hasil ujian ini?\nData yang dihapus tidak dapat dikembalikan.')) {
+                return;
+            }
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '';
+            const inputId = document.createElement('input');
+            inputId.type = 'hidden';
+            inputId.name = 'id_ujian_batch';
+            inputId.value = '<?= $selected_ujian ?>';
+            form.appendChild(inputId);
+            const inputAction = document.createElement('input');
+            inputAction.type = 'hidden';
+            inputAction.name = 'delete_all';
+            inputAction.value = '1';
+            form.appendChild(inputAction);
+            document.body.appendChild(form);
+            form.submit();
         }
     </script>
     
