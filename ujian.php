@@ -1108,7 +1108,7 @@ function initExamFeatures() {
                 no++;
             }
             
-return html;
+            return html;
         }
         
         function loadPage(page) {
@@ -1247,7 +1247,6 @@ return html;
         }
         
         async function verifyExamCode() {
-            alert('DEBUG: verifyExamCode() called!'); // DEBUG LINE
             const kode = document.getElementById('kodeUjianInput').value.trim();
             if (!kode) {
                 alert('Masukkan kode ujian!');
