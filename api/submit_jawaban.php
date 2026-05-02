@@ -1,6 +1,8 @@
 <?php
 // api/submit_jawaban.php - AJAX API untuk submit jawaban ujian
 
+session_start();
+
 error_reporting(0);
 ini_set('display_errors', 0);
 
@@ -530,8 +532,10 @@ function handleCheckExamCode($conn, $input) {
             
             if (empty($kodeDb)) {
                 $response['valid'] = true;
+                $_SESSION['exam_code_verified'] = true;
             } elseif (strcasecmp($kodeDb, $kode) === 0) {
                 $response['valid'] = true;
+                $_SESSION['exam_code_verified'] = true;
             } else {
                 $response['message'] = 'Kode ujian salah';
             }
