@@ -28,12 +28,12 @@ function validateUniqueAttempt($conn, $id_ujian, $nis) {
     $stmt->close();
     
     if ($has_completed) {
-        $stmt = $conn->prepare("SELECT id FROM izin_remedi WHERE id_ujian = ? AND nis = ? LIMIT 1");
-        $stmt->bind_param("is", $id_ujian, $nis);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $has_remedi_permission = $result->num_rows > 0;
-        $stmt->close();
+        $stmt2 = $conn->prepare("SELECT id FROM izin_remedi WHERE id_ujian = ? AND nis = ? LIMIT 1");
+        $stmt2->bind_param("is", $id_ujian, $nis);
+        $stmt2->execute();
+        $result2 = $stmt2->get_result();
+        $has_remedi_permission = $result2->num_rows > 0;
+        $stmt2->close();
         
         return $has_remedi_permission;
     }
@@ -270,10 +270,10 @@ function handleAutoSave($conn, $input) {
         $response['message'] = 'Jawaban tersimpan';
         $response['saved_count'] = is_array($answers) ? count($answers) : 0;
     } else {
-        $createTable = $conn->query("SHOW TABLES LIKE 'jawaban_sEMENTARA'");
-        if ($createTable->num_rows === 0) {
+        $createTable = $conn->query("SHOW TABLES LIKE 'jawaban_sementara'");
+        if ($createTable && $createTable->num_rows === 0) {
             $conn->query("
-                CREATE TABLE IF NOT EXISTS `jawaban_sEMENTARA` (
+                CREATE TABLE IF NOT EXISTS `jawaban_sementara` (
                     `id` int NOT NULL AUTO_INCREMENT,
                     `id_ujian` int NOT NULL,
                     `nis` varchar(50) NOT NULL,
@@ -288,10 +288,16 @@ function handleAutoSave($conn, $input) {
                     INDEX `idx_ujian` (`id_ujian`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
             ");
-            $stmt->execute();
-            $response['success'] = true;
-            $response['message'] = 'Jawaban tersimpan';
-            $response['saved_count'] = is_array($answers) ? count($answers) : 0;
+            // Re-prepare and execute after table creation
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("issss", $id_ujian, $nis, $namaValue, $kelasValue, $answersJson);
+            if ($stmt->execute()) {
+                $response['success'] = true;
+                $response['message'] = 'Jawaban tersimpan';
+                $response['saved_count'] = is_array($answers) ? count($answers) : 0;
+            } else {
+                throw new Exception('Failed to save after table creation: ' . $stmt->error);
+            }
         } else {
             throw new Exception('Failed to save: ' . $stmt->error);
         }
@@ -369,15 +375,42 @@ function handleSubmitFinal($conn, $input) {
         ];
     }
     
+    // Count violations and apply penalty
+    $violation_count = 0;
+    $penalty = 0;
+    $violation_table = $conn->query("SHOW TABLES LIKE 'exam_violations'");
+    if ($violation_table && $violation_table->num_rows > 0) {
+        $stmt_v = $conn->prepare("SELECT COUNT(*) as total FROM exam_violations WHERE id_ujian = ? AND nis = ?");
+        $stmt_v->bind_param("is", $id_ujian, $nis);
+        $stmt_v->execute();
+        $result_v = $stmt_v->get_result();
+        if ($row_v = $result_v->fetch_assoc()) {
+            $violation_count = (int)$row_v['total'];
+        }
+        $stmt_v->close();
+        
+        // Apply penalty: 10 points per violation, max 50% of total score
+        if ($violation_count > 0) {
+            $penalty = min($violation_count * 10, $total_skor * 0.5);
+            $total_skor = max(0, $total_skor - $penalty);
+        }
+    }
+    
     $detail_jawaban_json = json_encode($detail_jawaban);
+    
+    // Check if skor_awal column exists
+    $checkSkorAwal = $conn->query("SHOW COLUMNS FROM hasil_ujian LIKE 'skor_awal'");
+    if (!$checkSkorAwal || $checkSkorAwal->num_rows === 0) {
+        $conn->query("ALTER TABLE hasil_ujian ADD COLUMN skor_awal INT DEFAULT NULL AFTER total_skor");
+    }
     
     $checkCols = $conn->query("SHOW COLUMNS FROM hasil_ujian LIKE 'detail_jawaban'");
     if ($checkCols && $checkCols->num_rows > 0) {
-        $stmt = $conn->prepare("INSERT INTO hasil_ujian (id_ujian, nis, nama, kelas, total_skor, detail_jawaban) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("isssis", $id_ujian, $nis, $nama, $kelas, $total_skor, $detail_jawaban_json);
+        $stmt = $conn->prepare("INSERT INTO hasil_ujian (id_ujian, nis, nama, kelas, total_skor, skor_awal, detail_jawaban) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("isssiis", $id_ujian, $nis, $nama, $kelas, $total_skor, $skor_awal, $detail_jawaban_json);
     } else {
-        $stmt = $conn->prepare("INSERT INTO hasil_ujian (id_ujian, nis, nama, kelas, total_skor) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("isssi", $id_ujian, $nis, $nama, $kelas, $total_skor);
+        $stmt = $conn->prepare("INSERT INTO hasil_ujian (id_ujian, nis, nama, kelas, total_skor, skor_awal) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("isssii", $id_ujian, $nis, $nama, $kelas, $total_skor, $skor_awal);
     }
     
     if ($stmt->execute()) {
@@ -388,6 +421,9 @@ function handleSubmitFinal($conn, $input) {
         $response['success'] = true;
         $response['message'] = 'Jawaban berhasil disubmit';
         $response['skor'] = $total_skor;
+        $response['skor_awal'] = $total_skor + $penalty; // Score before penalty
+        $response['penalty'] = $penalty;
+        $response['violation_count'] = $violation_count;
         $response['total_soal'] = count($soal_list);
         $response['jawaban_benar'] = count(array_filter($detail_jawaban, fn($d) => $d['is_correct']));
     } else {

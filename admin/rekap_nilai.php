@@ -55,7 +55,11 @@ if ($selected_ujian > 0) {
         case 'kelas_asc': $order_by = 'h.kelas ASC, h.nama ASC'; break;
     }
     
-    $sql = "SELECT h.*, u.judul_ujian FROM hasil_ujian h JOIN ujian u ON h.id_ujian = u.id WHERE h.id_ujian = ?";
+    $sql = "SELECT h.*, u.judul_ujian, 
+                (SELECT COUNT(*) FROM exam_violations v WHERE v.id_ujian = h.id_ujian AND v.nis = h.nis) as jumlah_pelanggaran
+                FROM hasil_ujian h 
+                JOIN ujian u ON h.id_ujian = u.id 
+                WHERE h.id_ujian = ?";
     if ($filter_skor_min > 0) {
         $sql .= " AND h.total_skor >= " . (int)$filter_skor_min;
     }
@@ -77,6 +81,16 @@ if ($selected_ujian > 0) {
         $stats['rata'] = round(array_sum($scores) / count($scores), 1);
         $stats['tertinggi'] = max($scores);
         $stats['terendah'] = min($scores);
+        
+        // Calculate penalty stats
+        $stats['skor_awal_total'] = 0;
+        $stats['penalty_total'] = 0;
+        foreach ($all_results as $r) {
+            $skor_awal = $r['skor_awal'] ?? $r['total_skor'];
+            $penalty = $skor_awal - $r['total_skor'];
+            $stats['skor_awal_total'] += $skor_awal;
+            $stats['penalty_total'] += $penalty;
+        }
         
         $kelas_temp = array_unique(array_column($all_results, 'kelas'));
         sort($kelas_temp);
@@ -649,20 +663,20 @@ if (isset($_POST['delete_all']) && isset($_POST['id_ujian_batch'])) {
             </div>
             <div class="col-md-3">
                 <div class="stat-card success">
-                    <div class="stat-value"><?= $stats['rata'] ?></div>
-                    <div class="stat-label">Rata-rata Skor</div>
+                    <div class="stat-value"><?= round($stats['skor_awal_total'] / max($stats['total'], 1), 1) ?></div>
+                    <div class="stat-label">Rata-rata Asli</div>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="stat-card warning">
-                    <div class="stat-value"><?= $stats['tertinggi'] ?></div>
-                    <div class="stat-label">Skor Tertinggi</div>
+                    <div class="stat-value"><?= $stats['rata'] ?></div>
+                    <div class="stat-label">Rata-rata Akhir</div>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="stat-card danger">
-                    <div class="stat-value"><?= $stats['terendah'] ?></div>
-                    <div class="stat-label">Skor Terendah</div>
+                    <div class="stat-value"><?= $stats['penalty_total'] ?></div>
+                    <div class="stat-label">Total Potongan</div>
                 </div>
             </div>
         </div>
@@ -772,14 +786,16 @@ if (isset($_POST['delete_all']) && isset($_POST['id_ujian_batch'])) {
                     <table class="table table-hover mb-0">
                         <thead>
                             <tr>
-                                <th class="text-center" style="width: 50px;">
-                                    <input type="checkbox" id="checkAll">
+                                <th class="text-center" style="width: 40px;">
+                                    <input type="checkbox" id="checkAll" class="form-check-input">
                                 </th>
                                 <th class="text-center" style="width: 50px;">No</th>
                                 <th>NIS</th>
                                 <th>Nama</th>
                                 <th>Kelas</th>
-                                <th class="text-center" style="width: 80px;">Skor</th>
+                                <th class="text-center" style="width: 80px;">Skor Asli</th>
+                                <th class="text-center" style="width: 80px;">Skor Akhir</th>
+                                <th class="text-center" style="width: 80px;">Potongan</th>
                                 <th class="text-center" style="width: 140px;">Waktu Submit</th>
                                 <th class="text-center" style="width: 70px;">Aksi</th>
                             </tr>
@@ -797,54 +813,67 @@ if (isset($_POST['delete_all']) && isset($_POST['id_ujian_batch'])) {
                                 <td><?= htmlspecialchars($hasil['nis']) ?></td>
                                 <td class="fw-semibold"><?= htmlspecialchars($hasil['nama']) ?></td>
                                 <td><?= htmlspecialchars($hasil['kelas']) ?></td>
+                                <!-- Skor Asli -->
+                                <td class="text-center">
+                                    <?php 
+                                    if ($hasil['skor_awal'] !== null) {
+                                        $skor_asli = $hasil['skor_awal'];
+                                    } else {
+                                        $penalty_calc = min($hasil['jumlah_pelanggaran'] * 10, $hasil['total_skor'] * 0.5);
+                                        $skor_asli = $hasil['total_skor'] + $penalty_calc;
+                                    }
+                                    ?>
+                                    <span class="badge bg-info"><?= $skor_asli ?></span>
+                                </td>
+                                <!-- Skor Akhir -->
                                 <td class="text-center">
                                     <span class="badge bg-<?= $hasil['total_skor'] >= $stats['rata'] ? 'success' : 'warning' ?>">
                                         <?= $hasil['total_skor'] ?>
                                     </span>
                                 </td>
-                                <td class="text-center text-muted"><?= date('d/m/Y H:i', strtotime($hasil['waktu_submit'])) ?></td>
+                                <!-- Potongan -->
                                 <td class="text-center">
-                                    <div class="action-buttons">
-                                        <form method="post" style="display: inline;">
-                                            <input type="hidden" name="id_hasil" value="<?= $hasil['id'] ?>">
-                                            <input type="hidden" name="id_ujian" value="<?= $selected_ujian ?>">
-                                            <?php if ($hasil['has_remedi']): ?>
-                                            <input type="hidden" name="remove_remedi" value="1">
-                                            <button type="submit" 
-                                                class="action-btn-group <?= $hasil['has_remedi'] ? 'active' : '' ?>" 
-                                                data-bs-toggle="tooltip" 
-                                                data-bs-placement="top" 
-                                                title="Cabut Izin Remedi">
-                                                <span class="action-btn action-btn-remedi active">
-                                                    <i class="bi bi-arrow-repeat" style="font-size: 1rem;"></i>
-                                                </span>
-                                                <span class="action-btn-label">Remedi</span>
-                                            </button>
-                                            <?php else: ?>
-                                            <input type="hidden" name="give_remedi" value="1">
-                                            <button type="submit" 
-                                                class="action-btn-group" 
-                                                data-bs-toggle="tooltip" 
-                                                data-bs-placement="top" 
-                                                title="Berikan Izin Remedi">
-                                                <span class="action-btn action-btn-remedi">
-                                                    <i class="bi bi-arrow-repeat" style="font-size: 1rem;"></i>
-                                                </span>
-                                                <span class="action-btn-label">Remedi</span>
-                                            </button>
-                                            <?php endif; ?>
-                                        </form>
-                                        <button type="button" 
-                                            class="action-btn-group btn-hapus-hasil" 
-                                            data-id="<?= $hasil['id'] ?>" 
-                                            data-ujian="<?= $selected_ujian ?>"
-                                            data-bs-toggle="tooltip" 
-                                            data-bs-placement="top" 
-                                            title="Hapus">
-                                            <span class="action-btn action-btn-delete">
-                                                <i class="bi bi-trash3" style="font-size: 1rem;"></i>
-                                            </span>
-                                            <span class="action-btn-label">Hapus</span>
+                                    <?php 
+                                    if ($hasil['skor_awal'] !== null) {
+                                        $penalty = $hasil['skor_awal'] - $hasil['total_skor'];
+                                    } else {
+                                        $penalty = min($hasil['jumlah_pelanggaran'] * 10, $hasil['total_skor'] * 0.5);
+                                    }
+                                    ?>
+                                    <?php if ($penalty > 0): ?>
+                                        <span class="badge bg-danger"><?= $penalty ?></span>
+                                    <?php else: ?>
+                                        <span class="text-muted">0</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="text-center text-muted">
+                                    <?php if (!empty($hasil['waktu_submit'])): ?>
+                                        <?= date('d/m/Y H:i', strtotime($hasil['waktu_submit'])) ?>
+                                    <?php else: ?>
+                                        <span class="text-muted">-</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="text-center">
+                                    <div class="d-flex gap-1 justify-content-center">
+                                        <?php if ($hasil['has_remedi']): ?>
+                                            <form method="POST" style="display:inline;" onsubmit="return confirm('Cabut izin remedi untuk <?= htmlspecialchars($hasil['nama']) ?>?')">
+                                                <input type="hidden" name="id_hasil" value="<?= $hasil['id'] ?>">
+                                                <input type="hidden" name="id_ujian" value="<?= $selected_ujian ?>">
+                                                <button type="submit" name="remove_remedi" class="btn btn-sm btn-outline-danger" title="Cabut Remedi">
+                                                    <i class="bi bi-x-circle"></i>
+                                                </button>
+                                            </form>
+                                        <?php else: ?>
+                                            <form method="POST" style="display:inline;" onsubmit="return confirm('Beri izin remedi untuk <?= htmlspecialchars($hasil['nama']) ?>?')">
+                                                <input type="hidden" name="id_hasil" value="<?= $hasil['id'] ?>">
+                                                <input type="hidden" name="id_ujian" value="<?= $selected_ujian ?>">
+                                                <button type="submit" name="give_remedi" class="btn btn-sm btn-success" title="Beri Remedi">
+                                                    <i class="bi bi-arrow-repeat"></i>
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
+                                        <button type="button" class="btn btn-sm btn-danger" title="Hapus" onclick="deleteRecord(<?= (int)$hasil['id'] ?>, <?= (int)$selected_ujian ?>, '<?= htmlspecialchars(addslashes($hasil['nama'])) ?>')">
+                                            <i class="bi bi-trash"></i>
                                         </button>
                                     </div>
                                 </td>
@@ -1139,5 +1168,21 @@ if (isset($_POST['delete_all']) && isset($_POST['id_ujian_batch'])) {
             box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
         }
     </style>
+    
+    <!-- Hidden Delete Form (outside batch form to avoid nesting) -->
+    <form id="deleteForm" method="GET" style="display:none;">
+        <input type="hidden" name="ujian" id="deleteUjian">
+        <input type="hidden" name="hapus" id="deleteId">
+    </form>
+    
+    <script>
+    function deleteRecord(id, ujian, nama) {
+        if (confirm('Hapus hasil ujian ' + nama + '?')) {
+            document.getElementById('deleteId').value = id;
+            document.getElementById('deleteUjian').value = ujian;
+            document.getElementById('deleteForm').submit();
+        }
+    }
+    </script>
 </body>
 </html>

@@ -865,8 +865,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                                 <i class="bi bi-question-circle"></i> <?= count($soal_list) ?> Soal
                             </span>
                             <?php if (isset($ujian['waktu_tersedia']) && $ujian['waktu_tersedia'] > 0): ?>
-                            <span class="badge-item warning">
-                                <i class="bi bi-clock"></i> <?= $ujian['waktu_tersedia'] ?> menit
+                            <span class="badge-item warning" id="timerBadge">
+                                <i class="bi bi-stopwatch"></i> <span id="timerDisplay"><?= floor((int)$ujian['waktu_tersedia'] / 60) ?>:<?= sprintf('%02d', (int)$ujian['waktu_tersedia'] % 60) ?>:00</span>
                             </span>
                             <?php endif; ?>
                         </div>
@@ -1058,6 +1058,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
         let tickSoundPlayed = false;
         let timerWarningShown = false;
         let lastAutoSaveTime = 0;
+        let fullscreenExitHandler = null;
+        let fsViolationCount = 0;
+        let wasFs = false;
         
         function init() {
             if (document.readyState === 'loading') {
@@ -1164,33 +1167,113 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             // Reset submission flag and activate fullscreen mode
             isSubmittingExam = false;
             enterFullscreen();
+
+            // Activate force fullscreen exit detection
+            setTimeout(initFullscreenExitDetection, 300);
             
             // Initialize in background without waiting
             setTimeout(initExamFeatures, 500);
         }
          
-         function enterFullscreen() {
-             const elem = document.documentElement;
-             if (elem.requestFullscreen) {
-                 elem.requestFullscreen().catch(e => console.log('Fullscreen request failed:', e));
-             } else if (elem.webkitRequestFullscreen) { /* Safari */
-                 elem.webkitRequestFullscreen();
-             } else if (elem.msRequestFullscreen) { /* IE11 */
-                 elem.msRequestFullscreen();
-             }
-         }
+          function enterFullscreen() {
+              const elem = document.documentElement;
+              try {
+                  if (elem.requestFullscreen) {
+                      elem.requestFullscreen().catch(e => console.warn('Fullscreen request failed:', e));
+                  } else if (elem.webkitRequestFullscreen) { /* Safari */
+                      elem.webkitRequestFullscreen();
+                  } else if (elem.msRequestFullscreen) { /* IE11 */
+                      elem.msRequestFullscreen();
+                  }
+              } catch(e) {
+                  console.warn('Fullscreen error:', e);
+              }
+          }
          
-         function exitFullscreen() {
-             if (document.fullscreenElement) {
-                 if (document.exitFullscreen) {
-                     document.exitFullscreen();
-                 } else if (document.webkitExitFullscreen) { /* Safari */
-                     document.webkitExitFullscreen();
-                 } else if (document.msExitFullscreen) { /* IE11 */
-                     document.msExitFullscreen();
-                 }
-             }
-         }
+          function exitFullscreen() {
+              if (document.fullscreenElement) {
+                  if (document.exitFullscreen) {
+                      document.exitFullscreen();
+                  } else if (document.webkitExitFullscreen) { /* Safari */
+                      document.webkitExitFullscreen();
+                  } else if (document.msExitFullscreen) { /* IE11 */
+                      document.msExitFullscreen();
+                  }
+              }
+          }
+
+          function initFullscreenExitDetection() {
+              wasFs = !!document.fullscreenElement || !!document.webkitFullscreenElement;
+
+              function handleFsChange() {
+                  if (examFinished) return;
+                  const isFsNow = !!(document.fullscreenElement || document.webkitFullscreenElement);
+                  if (wasFs && !isFsNow && !isSubmittingExam) {
+                      fsViolationCount++;
+                      logViolation('exit_fullscreen', 'Siswa keluar dari mode fullscreen (force)');
+                      const maxViol = <?= (int)($ujian['max_violations'] ?? 3) ?>;
+                      
+                      if (fsViolationCount >= maxViol) {
+                          showFsModal('ANDA TERLALU SERING KELUAR DARI FULLSCREEN.<br>Jawaban akan disubmit!', true);
+                      } else {
+                          showFsModal('PERINGATAN: Jangan keluar dari fullscreen!<br>Pelanggaran: ' + fsViolationCount + '/' + maxViol + '<br><small class="text-danger">Setiap pelanggaran akan mengurangi 10 poin dari nilai akhir!</small>', false);
+                      }
+                  }
+                  wasFs = isFsNow;
+              }
+
+              document.removeEventListener('fullscreenchange', fullscreenExitHandler);
+              document.removeEventListener('webkitfullscreenchange', fullscreenExitHandler);
+
+              fullscreenExitHandler = handleFsChange;
+              document.addEventListener('fullscreenchange', fullscreenExitHandler);
+              document.addEventListener('webkitfullscreenchange', fullscreenExitHandler);
+          }
+
+          function showFsModal(message, isFinal) {
+              const oldModal = document.getElementById('fsModal');
+              if (oldModal) oldModal.remove();
+              
+              const overlay = document.createElement('div');
+              overlay.id = 'fsModal';
+              overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:2147483647;display:flex;align-items:center;justify-content:center;cursor:pointer;';
+              
+              const box = document.createElement('div');
+              box.style.cssText = 'background:white;border-radius:16px;padding:35px;text-align:center;max-width:420px;width:90%;box-shadow:0 25px 80px rgba(0,0,0,0.5);animation:fsSlideUp 0.3s ease-out;cursor:default;';
+              
+              box.innerHTML = `
+                  <i class="bi bi-exclamation-triangle-fill" style="font-size:3.5rem;color:#ffc107;"></i>
+                  <h4 class="mt-3 mb-3 fw-bold">Peringatan Fullscreen</h4>
+                  <p class="text-muted mb-4" style="font-size:1rem;">${message}</p>
+                  <button id="fsModalBtn" type="button" class="btn btn-warning px-5 py-2" style="border-radius:10px;font-weight:600;font-size:1rem;pointer-events:auto;">
+                      <i class="bi bi-arrows-fullscreen me-2"></i>Kembali ke Fullscreen
+                  </button>
+              `;
+              
+              overlay.appendChild(box);
+              document.body.appendChild(overlay);
+              
+              // Use onclick for more reliable event handling
+              document.getElementById('fsModalBtn').onclick = function(e) {
+                  e.stopPropagation();
+                  overlay.remove();
+                  // Re-enter fullscreen - this is a valid user gesture
+                  const elem = document.documentElement;
+                  if (elem.requestFullscreen) {
+                      elem.requestFullscreen().then(() => {
+                          console.log('Fullscreen re-entered from modal');
+                          if (isFinal) setTimeout(submitFinal, 500);
+                      }).catch(e => {
+                          console.error('Failed to re-enter fullscreen:', e);
+                          alert('Gagal masuk fullscreen. Coba lagi.');
+                      });
+                  } else if (elem.webkitRequestFullscreen) {
+                      elem.webkitRequestFullscreen();
+                      if (isFinal) setTimeout(submitFinal, 500);
+                  }
+                  return false;
+              };
+          }
         
 function initExamFeatures() {
             // Fetch client IP address
@@ -1970,7 +2053,8 @@ function initExamFeatures() {
                 if (data.success) {
                     localStorage.removeItem('exam_nis');
                     localStorage.removeItem(STORAGE_KEY);
-                    showSuccessPage(data.skor, nis, nama, kelas);
+                    // Pass penalty info to success page
+                    showSuccessPage(data.skor, nis, nama, kelas, data.skor_awal || data.skor, data.penalty || 0, data.violation_count || 0);
                 } else {
                     alert('Error: ' + data.message);
                     btn.innerHTML = originalText;
@@ -2067,10 +2151,23 @@ function initExamFeatures() {
             showSummary();
         };
         
-        function showSuccessPage(skor, nis, nama, kelas) {
+        function showSuccessPage(skor, nis, nama, kelas, skorAwal = null, penalty = 0, violationCount = 0) {
             localStorage.setItem('exam_nis', nis);
             localStorage.setItem('exam_nama', nama);
             localStorage.setItem('exam_kelas', kelas);
+            
+            // Build penalty info HTML if applicable
+            let penaltyHtml = '';
+            if (penalty > 0) {
+                penaltyHtml = `
+                    <div class="alert alert-warning mt-3" style="border-radius:12px;">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <strong>Info Pengurangan Nilai:</strong><br>
+                        Skor awal: ${skorAwal} | Dikurangi: ${penalty} poin (${violationCount} pelanggaran)<br>
+                        <small class="text-muted">Setiap pelanggaran mengurangi 10 poin dari nilai akhir</small>
+                    </div>
+                `;
+            }
             
             document.body.innerHTML = `
                 <!DOCTYPE html>
