@@ -1131,6 +1131,33 @@ return html;
             document.getElementById('soalContainer').innerHTML = html;
             document.getElementById('currentPage').textContent = page;
             
+            document.getElementById('prevBtn').disabled = (page === 1);
+            document.getElementById('nextBtn').disabled = (page === Math.ceil(SOAL_DATA.length / SOAL_PER_HALAMAN));
+            
+            updateSoalNumbers();
+            updateProgress();
+            
+            // Hide loading indicator after soal loaded
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
+            }
+        }
+            
+            const totalPages = Math.ceil(SOAL_DATA.length / SOAL_PER_HALAMAN);
+            if (page < 1 || page > totalPages) {
+                console.error('Invalid page:', page);
+                return;
+            }
+            
+            const start = (page - 1) * SOAL_PER_HALAMAN;
+            const end = Math.min(start + SOAL_PER_HALAMAN, SOAL_DATA.length);
+            const soalPage = SOAL_DATA.slice(start, end);
+            
+            const html = renderSoal(soalPage);
+            document.getElementById('soalContainer').innerHTML = html;
+            document.getElementById('currentPage').textContent = page;
+            
             document.getElementById('prevBtn').disabled = page === 1;
             document.getElementById('nextBtn').disabled = page === Math.ceil(SOAL_DATA.length / SOAL_PER_HALAMAN);
             
