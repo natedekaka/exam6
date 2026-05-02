@@ -720,6 +720,120 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        
+        /* Timer Warning Styles */
+        @keyframes blinkRed {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .timer-danger {
+            animation: blinkRed 1s infinite !important;
+            color: #dc3545 !important;
+        }
+        .timer-warning {
+            color: #ffc107 !important;
+        }
+        
+        /* Summary Modal */
+        .summary-modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .summary-content {
+            background: white;
+            border-radius: 20px;
+            max-width: 500px;
+            width: 90%;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .summary-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .summary-header h4 {
+            color: #333;
+            font-weight: 600;
+        }
+        .summary-stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        .stat-label {
+            font-size: 0.85rem;
+            color: #666;
+        }
+        .summary-message {
+            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: 500;
+        }
+        .unanswered-list {
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .unanswered-list .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .unanswered-list .button-group button {
+            padding: 5px 12px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            background: white;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .unanswered-list .button-group button:hover {
+            background: #f0f0f0;
+        }
+        .summary-footer {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .summary-footer button {
+            flex: 1;
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .btn-success {
+            background: #198754;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -869,9 +983,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             </div>
         </div>
         
+        <!-- Summary Modal Before Submit -->
+        <div id="summaryModal" class="summary-modal" style="display: none;">
+            <div class="summary-content">
+                <div class="summary-header">
+                    <h4><i class="bi bi-clipboard-check text-primary"></i> Ringkasan Sebelum Submit</h4>
+                </div>
+                <div class="summary-body">
+                    <div class="summary-stats">
+                        <div class="stat-item">
+                            <div class="stat-number text-primary" id="summaryTotal">0</div>
+                            <div class="stat-label">Total Soal</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number text-success" id="summaryAnswered">0</div>
+                            <div class="stat-label">Dijawab</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number text-danger" id="summaryUnanswered">0</div>
+                            <div class="stat-label">Belum Dijawab</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number text-warning" id="summaryRagu">0</div>
+                            <div class="stat-label">Ragu-ragu</div>
+                        </div>
+                    </div>
+                    
+                    <div class="summary-message mt-3" id="summaryMessage"></div>
+                    
+                    <div class="unanswered-list mt-3" id="unansweredList" style="display: none;">
+                        <h6><i class="bi bi-exclamation-circle text-warning"></i> Soal Belum Dijawab:</h6>
+                        <div class="button-group" id="unansweredButtons"></div>
+                    </div>
+                </div>
+                <div class="summary-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeSummary()">
+                        <i class="bi bi-pencil-square me-2"></i>Kembali Kerjakan
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="confirmSubmit()">
+                        <i class="bi bi-send-fill me-2"></i>Ya, Submit Sekarang
+                    </button>
+                </div>
+            </div>
+        </div>
+        
         <footer class="text-center text-muted py-4">
             <small>&copy; <?= date('Y') ?> Sistem Ujian Online - by natedekaka</small>
         </footer>
+        
+        <!-- Audio for timer warning -->
+        <audio id="tickSound" preload="auto">
+            <source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=" type="audio/wav">
+        </audio>
     </div>
 
     <script src="vendor/bootstrap/bootstrap.bundle.min.js" defer></script>
@@ -892,6 +1055,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
         let identitySaved = false;
         let csrfToken = '';
         let lastSaved = null;
+        let tickSoundPlayed = false;
+        let timerWarningShown = false;
+        let lastAutoSaveTime = 0;
         
         function init() {
             if (document.readyState === 'loading') {
@@ -1105,6 +1271,11 @@ function initExamFeatures() {
                 }
                 
                 html += '</div></div>';
+                
+                // Add Ragu-ragu checkbox
+                const isRagu = raguRagu[soalId] || false;
+                html += '<div class="mt-3"><label style="cursor: pointer;"><input type="checkbox" id="ragu_' + soalId + '" onchange="toggleRagu(' + soalId + ')" ' + (isRagu ? 'checked' : '') + '> <span style="color: #ffc107; font-size: 0.9rem;"><i class="bi bi-exclamation-circle"></i> Ragu-ragu</span></label></div>';
+                
                 no++;
             }
             
@@ -1815,6 +1986,88 @@ function initExamFeatures() {
             });
         }
         
+        // Ragu-ragu state
+        let raguRagu = {};
+        
+        function toggleRagu(soalId) {
+            raguRagu[soalId] = !raguRagu[soalId];
+            updateRaguDisplay(soalId);
+        }
+        
+        function updateRaguDisplay(soalId) {
+            const checkbox = document.getElementById('ragu_' + soalId);
+            if (checkbox) {
+                checkbox.checked = raguRagu[soalId] || false;
+            }
+        }
+        
+        function showSummary() {
+            const total = SOAL_DATA.length;
+            const answered = Object.keys(answers).length;
+            const unanswered = total - answered;
+            const raguCount = Object.values(raguRagu).filter(v => v === true).length;
+            
+            document.getElementById('summaryTotal').textContent = total;
+            document.getElementById('summaryAnswered').textContent = answered;
+            document.getElementById('summaryUnanswered').textContent = unanswered;
+            document.getElementById('summaryRagu').textContent = raguCount;
+            
+            // Message
+            const msgEl = document.getElementById('summaryMessage');
+            if (unanswered > 0) {
+                msgEl.innerHTML = '<div class="alert alert-warning">Anda masih memiliki <strong>' + unanswered + '</strong> soal yang belum dijawab. Jika di-submit sekarang, soal yang belum dijawab akan dianggap salah.</div>';
+                msgEl.style.display = 'block';
+            } else if (raguCount > 0) {
+                msgEl.innerHTML = '<div class="alert alert-info">Anda memiliki <strong>' + raguCount + '</strong> soal ragu-ragu. Pastikan jawaban sudah benar sebelum submit.</div>';
+                msgEl.style.display = 'block';
+            } else {
+                msgEl.innerHTML = '<div class="alert alert-success">Semua soal sudah dijawab. Siap untuk submit!</div>';
+                msgEl.style.display = 'block';
+            }
+            
+            // Unanswered list
+            const unansList = document.getElementById('unansweredList');
+            const unansButtons = document.getElementById('unansweredButtons');
+            
+            if (unanswered > 0) {
+                unansList.style.display = 'block';
+                let html = '';
+                for (let i = 0; i < SOAL_DATA.length; i++) {
+                    const soal = SOAL_DATA[i];
+                    if (!answers[soal.id]) {
+                        const page = Math.floor(i / SOAL_PER_HALAMAN) + 1;
+                        html += '<button type="button" class="btn btn-outline-warning btn-sm" onclick="closeSummary(); goToPage(' + page + ');">Soal ' + (i+1) + '</button>';
+                    }
+                }
+                unansButtons.innerHTML = html;
+            } else {
+                unansList.style.display = 'none';
+            }
+            
+            document.getElementById('summaryModal').style.display = 'flex';
+        }
+        
+        function closeSummary() {
+            document.getElementById('summaryModal').style.display = 'none';
+        }
+        
+        function confirmSubmit() {
+            closeSummary();
+            doSubmitFinal();
+        }
+        
+        // Modify submitFinal to show summary first
+        const originalSubmitFinal = submitFinal;
+        submitFinal = function() {
+            const kodeValidInput = document.getElementById('kodeValid');
+            if (kodeValidInput && kodeValidInput.value !== '1') {
+                verifyExamCodeForSubmit();
+                return;
+            }
+            
+            showSummary();
+        };
+        
         function showSuccessPage(skor, nis, nama, kelas) {
             localStorage.setItem('exam_nis', nis);
             localStorage.setItem('exam_nama', nama);
@@ -2008,17 +2261,102 @@ function initExamFeatures() {
             const detik = waktuTersedia % 60;
             timerDisplay.textContent = menit + ':' + (detik < 10 ? '0' : '') + detik;
             
-            if (waktuTersedia <= 300) {
+            // Reset class
+            timerDisplay.classList.remove('timer-danger', 'timer-warning');
+            timerBadge.classList.remove('badge', 'bg-danger', 'bg-warning', 'fs-6', 'px-3', 'py-2');
+            timerBadge.className = 'badge bg-primary fs-6 px-3 py-2';
+            
+            // Last 5 minutes: Red blinking
+            if (waktuTersedia <= 300 && waktuTersedia > 60) {
+                timerDisplay.classList.add('timer-danger');
                 timerBadge.className = 'badge bg-danger fs-6 px-3 py-2';
-            } else if (waktuTersedia <= 600) {
+                
+                // Show warning once
+                if (!timerWarningShown) {
+                    timerWarningShown = true;
+                    alert('PERHATIAN: Waktu tersisa kurang dari 5 menit!');
+                }
+            }
+            // Last 1 minute: Play tick sound
+            else if (waktuTersedia <= 60 && waktuTersedia > 0) {
+                timerDisplay.classList.add('timer-danger');
+                timerBadge.className = 'badge bg-danger fs-6 px-3 py-2';
+                
+                // Play tick sound (once)
+                if (!tickSoundPlayed) {
+                    tickSoundPlayed = true;
+                    const tickAudio = document.getElementById('tickSound');
+                    if (tickAudio) {
+                        tickAudio.loop = true;
+                        tickAudio.play().catch(e => console.log('Audio play failed:', e));
+                    }
+                }
+            }
+            // Time's up
+            else if (waktuTersedia <= 0) {
+                // Stop tick sound
+                const tickAudio = document.getElementById('tickSound');
+                if (tickAudio) {
+                    tickAudio.pause();
+                    tickAudio.currentTime = 0;
+                }
+                
+                const confirmSubmit = confirm('Waktu ujian telah habis! Jawaban akan otomatis dikirim. Klik OK untuk submit sekarang.');
+                if (confirmSubmit) {
+                    doSubmitFinal();
+                }
+                return;
+            }
+            // Between 5-10 minutes: Yellow warning
+            else if (waktuTersedia <= 600) {
                 timerBadge.className = 'badge bg-warning fs-6 px-3 py-2';
             }
             
-            if (waktuTersedia <= 0) {
-                alert('Waktu ujian telah habis! Jawaban akan otomatis dikirim.');
-                doSubmitFinal();
-                return;
+            // Auto-save to server every 30 seconds
+            if (identitySaved && waktuTersedia > 0) {
+                const now = Date.now();
+                if (now - lastAutoSaveTime >= 30000) { // 30 seconds
+                    lastAutoSaveTime = now;
+                    // Collect all answers and save
+                    const allAnswers = {};
+                    for (const soalId in answers) {
+                        allAnswers[soalId] = answers[soalId];
+                    }
+                    
+                    const nis = document.querySelector('input[name="nis"]')?.value.trim();
+                    if (nis && Object.keys(allAnswers).length > 0) {
+                        console.log('Auto-saving to server...');
+                        fetch(API_URL, {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                action: 'auto_save',
+                                id_ujian: ID_UJIAN,
+                                nis: nis,
+                                answers: allAnswers,
+                                ip_address: localStorage.getItem('exam_ip') || '',
+                                device_fingerprint: localStorage.getItem('exam_fp') || '',
+                                csrf_token: csrfToken,
+                                expected_token: csrfToken
+                            })
+                        }).then(r => r.json()).then(data => {
+                            if (data.success) {
+                                console.log('Auto-saved to server successfully');
+                                const statusEl = document.getElementById('autoSaveStatus');
+                                if (statusEl) {
+                                    statusEl.innerHTML = '<i class="bi bi-cloud-check-fill text-success"></i> Tersimpan di server';
+                                    setTimeout(() => {
+                                        if (document.getElementById('autoSaveStatus')) {
+                                            document.getElementById('autoSaveStatus').innerHTML = '';
+                                        }
+                                    }, 3000);
+                                }
+                            }
+                        }).catch(e => console.error('Auto-save failed:', e));
+                    }
+                }
             }
+            
             waktuTersedia--;
         }
         
