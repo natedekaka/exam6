@@ -765,7 +765,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
     <div class="container pb-5">
         <!-- Exam Code Form (if required) -->
         <?php if (!empty($ujian['kode_ujian'])): ?>
-        <div id="examCodeForm" class="exam-card" style="display: none;">
+        <div id="examCodeForm" class="exam-card" style="<?= empty($_SESSION['exam_code_verified']) ? '' : 'display: none;' ?>">
             <h5><i class="bi bi-shield-lock text-primary"></i> Kode Ujian</h5>
             <div class="mb-3">
                 <label class="form-label">Masukkan Kode Ujian <span class="text-danger">*</span></label>
@@ -778,7 +778,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
         <?php endif; ?>
         
         <!-- Main Exam Content -->
-        <div id="examContent">
+        <div id="examContent" style="<?= (!empty($ujian['kode_ujian']) && empty($_SESSION['exam_code_verified'])) ? 'display:none;' : '' ?>">
         
         <?php if ($message): ?>
             <div class="alert alert-<?= $message_type ?> alert-dismissible fade show">
