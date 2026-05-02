@@ -978,7 +978,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             </div>
             <div class="progress-text">
                 <div class="fw-bold">Soal Terjawab</div>
-                <small class="text-muted" id="progressPercent">0%</small>
+                <small class="text-muted" id="progressPercent">0/<?= count($soal_list) ?></small>
                 <small class="d-block" id="autoSaveStatus"></small>
             </div>
         </div>
@@ -2205,8 +2205,16 @@ function initExamFeatures() {
             const count = answered.size;
             const percent = Math.round((count / total) * 100);
             
-            document.getElementById('answeredCount').textContent = count;
-            document.getElementById('progressPercent').textContent = percent + '%';
+            // Show "X/Total" format instead of percentage
+            const progressText = count + '/' + total;
+            document.getElementById('answeredCount').textContent = progressText;
+            document.getElementById('progressPercent').textContent = progressText;
+            
+            // Update mobile progress
+            const progressMobile = document.getElementById('progressMobile');
+            if (progressMobile) {
+                progressMobile.textContent = '(' + count + '/' + total + ')';
+            }
             
             const circle = document.querySelector('.progress-circle');
             if (percent === 100) {
@@ -2253,13 +2261,26 @@ function initExamFeatures() {
         const timerDisplay = document.getElementById('timerDisplay');
         const timerBadge = document.getElementById('timerBadge');
         
+        // Initial display in HH:MM:SS format
+        if (timerDisplay) {
+            const jam = Math.floor(waktuTersedia / 3600);
+            const menit = Math.floor((waktuTersedia % 3600) / 60);
+            const detik = waktuTersedia % 60;
+            timerDisplay.textContent = jam + ':' + (menit < 10 ? '0' : '') + menit + ':' + (detik < 10 ? '0' : '') + detik;
+        }
+        
         function updateTimer() {
             const timerDisplay = document.getElementById('timerDisplay');
             if (!timerDisplay) return; // Jangan jalankan jika elemen belum ada!
             
-            const menit = Math.floor(waktuTersedia / 60);
+            // Calculate HH:MM:SS format
+            const jam = Math.floor(waktuTersedia / 3600);
+            const menit = Math.floor((waktuTersedia % 3600) / 60);
             const detik = waktuTersedia % 60;
-            timerDisplay.textContent = menit + ':' + (detik < 10 ? '0' : '') + detik;
+            
+            // Format: HH:MM:SS (always show hours)
+            const timeString = jam + ':' + (menit < 10 ? '0' : '') + menit + ':' + (detik < 10 ? '0' : '') + detik;
+            timerDisplay.textContent = timeString;
             
             // Reset class
             timerDisplay.classList.remove('timer-danger', 'timer-warning');
@@ -2274,7 +2295,12 @@ function initExamFeatures() {
                 // Show warning once
                 if (!timerWarningShown) {
                     timerWarningShown = true;
-                    alert('PERHATIAN: Waktu tersisa kurang dari 5 menit!');
+                    const remainingJam = Math.floor(waktuTersedia / 3600);
+                    const remainingMenit = Math.floor((waktuTersedia % 3600) / 60);
+                    const timeMsg = remainingJam > 0 ? 
+                        remainingJam + ' jam ' + remainingMenit + ' menit' : 
+                        remainingMenit + ' menit';
+                    alert('PERHATIAN: Waktu tersisa kurang dari ' + timeMsg + '!');
                 }
             }
             // Last 1 minute: Play tick sound
