@@ -555,7 +555,7 @@ docker compose up -d
 
 MIT License
 
-Copyright (c) 2024 Exam6 - Sistem Ujian Online
+Copyright (c) 2026 Exam6 - Sistem Ujian Online
 
 Dibenarkan untuk menggunakan, memodifikasi, dan mendistribusikan aplikasi ini dengan atau tanpa modifikasi untuk keperluan komersial maupun non-komersial.
 
