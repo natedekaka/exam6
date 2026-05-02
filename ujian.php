@@ -778,7 +778,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
         <?php endif; ?>
         
         <!-- Main Exam Content -->
-        <div id="examContent" style="<?= (!empty($ujian['kode_ujian']) && empty($_SESSION['exam_code_verified'])) ? 'display:none;' : '' ?>">
+        <div id="examContent">
         
         <?php if ($message): ?>
             <div class="alert alert-<?= $message_type ?> alert-dismissible fade show">
