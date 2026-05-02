@@ -1995,6 +1995,9 @@ return html;
         const timerBadge = document.getElementById('timerBadge');
         
         function updateTimer() {
+            const timerDisplay = document.getElementById('timerDisplay');
+            if (!timerDisplay) return; // Jangan jalankan jika elemen belum ada!
+            
             const menit = Math.floor(waktuTersedia / 60);
             const detik = waktuTersedia % 60;
             timerDisplay.textContent = menit + ':' + (detik < 10 ? '0' : '') + detik;
