@@ -778,7 +778,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
         <?php endif; ?>
         
         <!-- Main Exam Content -->
-        <div id="examContent" style="<?= !empty($ujian['kode_ujian']) ? 'display:none;' : '' ?>">
+        <div id="examContent" style="<?= (!empty($ujian['kode_ujian']) && empty($_SESSION['exam_code_verified'])) ? 'display:none;' : '' ?>">
         
         <?php if ($message): ?>
             <div class="alert alert-<?= $message_type ?> alert-dismissible fade show">
@@ -980,29 +980,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             }
         }
         
-         function startWithIdentity() {
-             const nis = document.getElementById('nisInput').value.trim();
-             const nama = document.getElementById('namaInput').value.trim();
-             const kelas = document.getElementById('kelasInput').value.trim();
-             
-             if (!nis || !nama || !kelas) {
-                 alert('Mohon lengkapi identitas terlebih dahulu!');
-                 return;
-             }
-             
-             document.getElementById('identitySection').style.display = 'none';
-             document.getElementById('questionSection').style.display = 'block';
-             document.getElementById('loadingIndicator').style.display = 'none';
-             
-             loadPage(1);
-             
-             // Reset submission flag and activate fullscreen mode
-             isSubmittingExam = false;
-             enterFullscreen();
-             
-             // Initialize in background without waiting
-             setTimeout(initExamFeatures, 500);
-         }
+        function startWithIdentity() {
+            const nis = document.getElementById('nisInput').value.trim();
+            const nama = document.getElementById('namaInput').value.trim();
+            const kelas = document.getElementById('kelasInput').value.trim();
+            
+            if (!nis || !nama || !kelas) {
+                alert('Mohon lengkapi identitas terlebih dahulu!');
+                return;
+            }
+            
+            document.getElementById('identitySection').style.display = 'none';
+            document.getElementById('questionSection').style.display = 'block';
+            document.getElementById('loadingIndicator').style.display = 'block';
+            
+            loadPage(1);
+            
+            // Reset submission flag and activate fullscreen mode
+            isSubmittingExam = false;
+            enterFullscreen();
+            
+            // Initialize in background without waiting
+            setTimeout(initExamFeatures, 500);
+        }
          
          function enterFullscreen() {
              const elem = document.documentElement;
