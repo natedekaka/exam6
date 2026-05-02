@@ -576,8 +576,8 @@ Kontribusi selalu diterima! Silakan:
 
 - **Repository**: https://github.com/natedekaka/exam6
 - **Issues**: https://github.com/natedekaka/exam6/issues
-- **Email**: (isi sesuai kebutuhan)
+- **Email**: natedekaka@gmail.com
 
 ---
 
-**Dibuat dengan ❤️ untuk dunia pendidikan Indonesia**
+**Dibuat dengan ❤️ untuk dunia pendidikan Indonesia spesial sman6cimahi**
