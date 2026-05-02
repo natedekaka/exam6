@@ -974,7 +974,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
         <!-- Progress Indicator -->
         <div class="progress-indicator" id="progressIndicator">
             <div class="progress-circle">
-                <span id="answeredCount">0</span>/<span id="totalSoal"><?= count($soal_list) ?></span>
+                <span id="answeredCount">0/<?= count($soal_list) ?></span>
             </div>
             <div class="progress-text">
                 <div class="fw-bold">Soal Terjawab</div>
@@ -1074,8 +1074,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             const totalPages = Math.ceil(totalSoal / SOAL_PER_HALAMAN);
             document.getElementById('totalPages').textContent = totalPages;
             
-            document.getElementById('answeredCount').textContent = '0';
-            document.getElementById('totalSoal').textContent = totalSoal;
+            document.getElementById('answeredCount').textContent = '0/' + totalSoal;
             
             const identitySection = document.getElementById('identitySection');
             const questionSection = document.getElementById('questionSection');
