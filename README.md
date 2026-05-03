@@ -28,14 +28,22 @@ Aplikasi ujian online berbasis PHP dan MySQL untuk sekolah dengan fitur keamanan
   - Tampilkan/nilai ulang hasil ujian
 - **Bank Soal** (tambah/edit/hapus soal dengan gambar)
   - Mendukung soal pilihan ganda dan essay
-  - Kategori soal untuk pengelompokan
+  - Kategori soal: Mudah, Sedang, Sulit (dropdown)
   - Timer per soal (opsional)
   - Poin/score per soal
 - **Import Soal Massal** dari Excel/CSV
-  - Template download tersedia
+  - Template download tersedia (format: soal, pilihan_a, pilihan_b, pilihan_c, pilihan_d, pilihan_e, kunci, poin, kategori)
   - Validasi format otomatis
   - Import ribuan soal sekaligus
 - **Ekspor Soal ke PDF** dengan formatting rapi
+- **Analytics Dashboard** dengan analisis mendalam
+  - Distribusi Grade dinamis (berdasarkan KKM)
+  - Analisis Butir Soal (Top 20 terburuk berdasarkan success rate)
+  - Kategori otomatis: Mudah/Sedang/Sulit berdasarkan tingkat keberhasilan
+  - Grafik interaktif (Chart.js): grade distribution, score distribution, question analysis
+  - Daftar siswa yang perlu remedial (skor < KKM)
+  - Top scorers
+  - Export ke Excel (.xls) kompatibel LibreOffice/WPS Office
 - **Rekap Nilai** dengan ekspor Excel
   - Filter berdasarkan ujian dan kelas
   - Statistik nilai (rata-rata, tertinggi, terendah)
@@ -121,12 +129,13 @@ exam6/
 │   ├── index.php              # Dashboard admin
 │   ├── login.php              # Login admin
 │   ├── logout.php             # Logout admin
-│   ├── tambah_soal.php        # Tambah/edit soal
+│   ├── tambah_soal.php        # Tambah/edit soal (dropdown kategori: Mudah/Sedang/Sulit)
 │   ├── manage_users.php        # Manajemen pengguna
 │   ├── rekap_nilai.php         # Rekap nilai & ekspor
 │   ├── monitor_ujian.php       # Monitor ujian real-time
 │   ├── profil_sekolah.php      # Pengaturan profil sekolah
-│   ├── import_soal.php         # Import soal dari Excel/CSV
+│   ├── analytics.php           # Analytics Dashboard (NEW: analisis butir soal, distribusi grade dinamis)
+│   ├── import_soal.php         # Import soal dari Excel/CSV (template: kategori Mudah/Sedang/Sulit)
 │   ├── ekspor_excel.php        # Ekspor nilai ke Excel
 │   ├── ekspor_soal_pdf.php     # Ekspor soal ke PDF
 │   └── download_template.php   # Download template import
@@ -136,7 +145,7 @@ exam6/
 ├── config/                     # Konfigurasi
 │   ├── database.php            # Konfigurasi database
 │   ├── init_sekolah.php        # Inisialisasi sekolah & tabel
-│   └── db_helper.php           # Database helper functions
+│   └── db_helper.php           # Database helper functions (fetchAllPrepared, fetchRowPrepared)
 ├── vendor/                     # Library (Bootstrap, Bootstrap Icons)
 ├── uploads/                    # File upload (logo, gambar soal)
 ├── migrations/                 # Database migrations
@@ -347,7 +356,7 @@ Untuk production server atau development tanpa Docker.
   - Tambah pilihan jawaban (A, B, C, D, E)
   - Pilih kunci jawaban benar
   - Isi poin soal
-  - Kategori soal (opsional)
+  - **Kategori soal**: Pilih dari dropdown (Mudah/Sedang/Sulit) atau kosongkan untuk auto-kategorisasi
   - Timer per soal (opsional, dalam detik)
   
 - **Edit/Hapus Soal**: Klik tombol edit/hapus pada daftar soal
@@ -355,7 +364,7 @@ Untuk production server atau development tanpa Docker.
 - **Import Soal Massal**:
   1. Klik menu **"Import Massal"**
   2. Download template CSV terlebih dahulu
-  3. Isi template dengan data soal
+  3. Isi template dengan data soal (kolom kategori: Mudah/Sedang/Sulit)
   4. Upload file CSV
   5. Sistem akan validasi otomatis
 
@@ -391,6 +400,29 @@ Untuk production server atau development tanpa Docker.
   - Klik tombol "Ekspor Excel"
   - File Excel akan diunduh dengan format rapi
   - Berisi semua detail jawaban per siswa
+
+#### 7. Analytics Dashboard (NEW)
+- Dashboard → **Analytics Dashboard**
+- Pilih ujian yang ingin dianalisis
+- Atur KKM (Kriteria Ketuntasan Minimal) - default 75
+- **Fitur Analytics**:
+  - **Summary Statistics**: Total peserta, rata-rata skor, completion rate
+  - **Distribusi Grade Dinamis** (berdasarkan KKM):
+    - Grade A: Score ≥ (KKM + 17) → Sangat Baik
+    - Grade B: Score ≥ (KKM + 9) → Baik
+    - Grade C: Score ≥ KKM → Cukup (Tuntas)
+    - Grade D: Score < KKM → Perlu Bimbingan (Belum Tuntas)
+  - **Analisis Butir Soal** (Top 20 terburuk):
+    - Question ID, Category (Mudah/Sedang/Sulit)
+    - Success rate, correct count, average poin
+    - Kategori otomatis berdasarkan tingkat keberhasilan
+  - **Top Scorers**: 10 siswa dengan nilai tertinggi
+  - **Students Needing Remedial**: Siswa dengan skor < KKM
+  - **Visualisasi Grafik** (Chart.js):
+    - Grade Distribution Chart
+    - Score Distribution Chart
+    - Question Analysis Chart (horizontal bar)
+  - **Export ke Excel**: Download laporan lengkap (.xls) kompatibel LibreOffice/WPS Office
 
 ---
 
@@ -497,7 +529,8 @@ Device Fingerprint: Aktif
   - Bootstrap 5 (CSS Framework)
   - Bootstrap Icons (Icon library)
   - Vanilla JavaScript (ES6+)
-  - Google Fonts (Poppins)
+  - Google Fonts (Inter)
+  - Chart.js 4.4.1 (Data visualization)
   
 - **Backend**: 
   - PHP 8.2 Native (tanpa framework)
