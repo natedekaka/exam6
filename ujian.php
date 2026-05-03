@@ -983,6 +983,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             </div>
         </div>
         
+        <div class="mb-3" id="raguNavContainer" style="display: none;">
+            <button type="button" class="btn btn-warning btn-sm w-100" onclick="showRaguList()">
+                <i class="bi bi-exclamation-circle"></i> Lihat Soal Ragu-ragu (<span id="raguNavCount">0</span>)
+            </button>
+        </div>
+        
         <!-- Summary Modal Before Submit -->
         <div id="summaryModal" class="summary-modal" style="display: none;">
             <div class="summary-content">
@@ -1014,6 +1020,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                     <div class="unanswered-list mt-3" id="unansweredList" style="display: none;">
                         <h6><i class="bi bi-exclamation-circle text-warning"></i> Soal Belum Dijawab:</h6>
                         <div class="button-group" id="unansweredButtons"></div>
+                    </div>
+                    <div class="ragu-list mt-3" id="raguList" style="display: none;">
+                        <h6><i class="bi bi-exclamation-circle text-warning"></i> Soal Ragu-ragu:</h6>
+                        <div class="button-group" id="raguButtons"></div>
                     </div>
                 </div>
                 <div class="summary-footer">
@@ -2127,11 +2137,40 @@ function initExamFeatures() {
                 unansList.style.display = 'none';
             }
             
+            // Ragu-ragu list
+            const raguList = document.getElementById('raguList');
+            const raguButtons = document.getElementById('raguButtons');
+            
+            if (raguCount > 0) {
+                raguList.style.display = 'block';
+                let html = '';
+                for (let i = 0; i < SOAL_DATA.length; i++) {
+                    const soal = SOAL_DATA[i];
+                    if (raguRagu[soal.id]) {
+                        const page = Math.floor(i / SOAL_PER_HALAMAN) + 1;
+                        html += '<button type="button" class="btn btn-outline-warning btn-sm" onclick="closeSummary(); goToPage(' + page + ');">Soal ' + (i+1) + '</button>';
+                    }
+                }
+                raguButtons.innerHTML = html;
+            } else {
+                raguList.style.display = 'none';
+            }
+            
             document.getElementById('summaryModal').style.display = 'flex';
         }
         
         function closeSummary() {
             document.getElementById('summaryModal').style.display = 'none';
+        }
+        
+        function showRaguList() {
+            showSummary();
+            setTimeout(() => {
+                const raguList = document.getElementById('raguList');
+                if (raguList && raguList.style.display !== 'none') {
+                    raguList.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 100);
         }
         
         function confirmSubmit() {
@@ -2319,6 +2358,17 @@ function initExamFeatures() {
                 circle.style.background = 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)';
             } else {
                 circle.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+            }
+            
+            // Update Ragu-ragu navigation button
+            const raguCount = Object.values(raguRagu).filter(v => v === true).length;
+            const raguNavContainer = document.getElementById('raguNavContainer');
+            const raguNavCount = document.getElementById('raguNavCount');
+            if (raguCount > 0) {
+                raguNavContainer.style.display = 'block';
+                raguNavCount.textContent = raguCount;
+            } else {
+                raguNavContainer.style.display = 'none';
             }
             
             // Auto-save ke localStorage

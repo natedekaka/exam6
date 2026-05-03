@@ -1330,7 +1330,12 @@ if (isset($_SESSION['import_message'])) {
                         <div class="col-md-3">
                             <div class="opsi-card">
                                 <label class="form-label fw-bold"><i class="bi bi-folder me-1"></i>Kategori</label>
-                                <input type="text" name="kategori" class="form-control" value="<?= $edit_soal ? htmlspecialchars($edit_soal['kategori'] ?? '') : '' ?>" placeholder="Contoh: Bab 1">
+                                <select name="kategori" class="form-control">
+                                    <option value="">-- Pilih Kategori --</option>
+                                    <option value="Mudah" <?= ($edit_soal && ($edit_soal['kategori'] ?? '') == 'Mudah') ? 'selected' : '' ?>>Mudah</option>
+                                    <option value="Sedang" <?= ($edit_soal && ($edit_soal['kategori'] ?? '') == 'Sedang') ? 'selected' : '' ?>>Sedang</option>
+                                    <option value="Sulit" <?= ($edit_soal && ($edit_soal['kategori'] ?? '') == 'Sulit') ? 'selected' : '' ?>>Sulit</option>
+                                </select>
                             </div>
                         </div>
                         
@@ -1780,7 +1785,12 @@ if (isset($_SESSION['import_message'])) {
                 
                 <div class="mb-3">
                     <label class="form-label">Kategori Baru (kosongkan jika tidak diubah)</label>
-                    <input type="text" name="bulk_kategori" class="form-control" placeholder="Contoh: Bab 1">
+                    <select name="bulk_kategori" class="form-control">
+                        <option value="">-- Tidak diubah --</option>
+                        <option value="Mudah">Mudah</option>
+                        <option value="Sedang">Sedang</option>
+                        <option value="Sulit">Sulit</option>
+                    </select>
                 </div>
                 
                 <div class="mb-3">
