@@ -348,7 +348,7 @@ pertanyaan,opsi_a,opsi_b,opsi_c,opsi_d,opsi_e,kunci_jawaban,poin,kategori,timer_
                     <ul class="text-muted small">
                         <li><strong>kunci_jawaban:</strong> a, b, c, d, atau e</li>
                         <li><strong>poin:</strong> default 10</li>
-                        <li><strong>kategori:</strong> opsional - nama kategori soal</li>
+                        <li><strong>kategori:</strong> opsional - isi dengan: Mudah, Sedang, atau Sulit</li>
                         <li><strong>timer_soal:</strong> opsional - waktu per-soal dalam detik (0 = tidak digunakan)</li>
                     </ul>
                 </div>

@@ -2,6 +2,11 @@
 
 session_start();
 
+if (!isset($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$csrf_token = $_SESSION['csrf_token'];
+
 header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:;");
 header("X-Frame-Options: DENY");
 header("X-Content-Type-Options: nosniff");
@@ -14,10 +19,36 @@ if (!isset($_SESSION['admin_id'])) {
 require_once '../config/database.php';
 require_once '../config/init_sekolah.php';
 
+function fetchAllPrepared($conn, $sql, $params, $types) {
+    $stmt = $conn->prepare($sql);
+    if ($params) {
+        $stmt->bind_param($types, ...$params);
+    }
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $data = $result->fetch_all(MYSQLI_ASSOC);
+    $result->free();
+    $stmt->close();
+    return $data;
+}
+
+function fetchRowPrepared($conn, $sql, $params, $types) {
+    $stmt = $conn->prepare($sql);
+    if ($params) {
+        $stmt->bind_param($types, ...$params);
+    }
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $result->free();
+    $stmt->close();
+    return $row;
+}
+
 $sekolah = getKonfigurasiSekolah($conn);
 
 $selected_ujian = isset($_GET['ujian']) ? (int)$_GET['ujian'] : 0;
-$kkm = isset($_GET['kkm']) ? (int)$_GET['kkm'] : 60; // Default KKM = 60
+$kkm = isset($_GET['kkm']) ? (int)$_GET['kkm'] : 60;
 
 $ujian_list = $conn->query("SELECT id, judul_ujian FROM ujian ORDER BY judul_ujian");
 
@@ -38,11 +69,13 @@ $analytics = [
     'violations_by_hour' => [],
     'recent_submissions' => [],
     'top_scorers' => [],
-    'needs_remedi' => 0
+    'needs_remedi' => 0,
+    'question_analysis' => []
 ];
 
 if ($selected_ujian > 0) {
-    $stmt = $conn->prepare("
+    // Get basic stats
+    $sql = "
         SELECT 
             COUNT(*) as total,
             AVG(CASE WHEN skor_awal IS NOT NULL THEN skor_awal ELSE total_skor END) as avg_original,
@@ -51,37 +84,30 @@ if ($selected_ujian > 0) {
             MIN(total_skor) as lowest
         FROM hasil_ujian 
         WHERE id_ujian = ?
-    ");
-    $stmt->bind_param("i", $selected_ujian);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $stats = $result->fetch_assoc();
-    $stmt->close();
+    ";
+    $stats = fetchRowPrepared($conn, $sql, [$selected_ujian], "i");
     
     $analytics['total_peserta'] = $stats['total'];
     $analytics['avg_score'] = round($stats['avg_score'], 1);
     $analytics['avg_original'] = round($stats['avg_original'], 1);
     
-    $stmt = $conn->prepare("
+    $sql = "
         SELECT COUNT(*) as total_violations, COUNT(DISTINCT nis) as students_with_violations
         FROM exam_violations 
         WHERE id_ujian = ?
-    ");
-    $stmt->bind_param("i", $selected_ujian);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $violation_stats = $result->fetch_assoc();
-    $stmt->close();
+    ";
+    $violation_stats = fetchRowPrepared($conn, $sql, [$selected_ujian], "i");
     
     $analytics['total_violations'] = $violation_stats['total_violations'];
     
-    $stmt = $conn->prepare("
+    // Grade distribution
+    $sql = "
         SELECT 
             CASE 
-                WHEN total_skor >= 85 THEN 'A'
-                WHEN total_skor >= 70 THEN 'B'
-                WHEN total_skor >= 55 THEN 'C'
-                WHEN total_skor >= 40 THEN 'D'
+                WHEN total_skor >= ($kkm + 17) THEN 'A'
+                WHEN total_skor >= ($kkm + 9) THEN 'B'
+                WHEN total_skor >= $kkm THEN 'C'
+                WHEN total_skor >= ($kkm - 15) THEN 'D'
                 ELSE 'E'
             END as grade,
             COUNT(*) as count
@@ -89,16 +115,13 @@ if ($selected_ujian > 0) {
         WHERE id_ujian = ?
         GROUP BY grade
         ORDER BY grade
-    ");
-    $stmt->bind_param("i", $selected_ujian);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    while ($row = $result->fetch_assoc()) {
+    ";
+    $result = fetchAllPrepared($conn, $sql, [$selected_ujian], "i");
+    foreach ($result as $row) {
         $analytics['grade_distribution'][$row['grade']] = $row['count'];
     }
-    $stmt->close();
     
-    $stmt = $conn->prepare("
+    $sql = "
         SELECT 
             CASE 
                 WHEN total_skor <= 20 THEN '0-20'
@@ -112,110 +135,267 @@ if ($selected_ujian > 0) {
         WHERE id_ujian = ?
         GROUP BY score_range
         ORDER BY score_range
-    ");
-    $stmt->bind_param("i", $selected_ujian);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    while ($row = $result->fetch_assoc()) {
+    ";
+    $result = fetchAllPrepared($conn, $sql, [$selected_ujian], "i");
+    foreach ($result as $row) {
         $analytics['score_ranges'][$row['score_range']] = $row['count'];
     }
-    $stmt->close();
     
-    $stmt = $conn->prepare("
-        SELECT HOUR(created_at) as hour, COUNT(*) as count
+    // Violations by hour
+    $sql = "
+        SELECT 
+            HOUR(created_at) as hour, COUNT(*) as count
         FROM exam_violations 
         WHERE id_ujian = ?
         GROUP BY HOUR(created_at)
         ORDER BY hour
-    ");
-    $stmt->bind_param("i", $selected_ujian);
-    $stmt->execute();
-    $result = $stmt->get_result();
+    ";
+    $result = fetchAllPrepared($conn, $sql, [$selected_ujian], "i");
     $violations_by_hour = [];
     for ($i = 0; $i < 24; $i++) {
         $violations_by_hour[$i] = 0;
     }
-    while ($row = $result->fetch_assoc()) {
+    foreach ($result as $row) {
         $violations_by_hour[(int)$row['hour']] = $row['count'];
     }
-    $stmt->close();
     $analytics['violations_by_hour'] = $violations_by_hour;
     
-    $stmt = $conn->prepare("
+    // Peak submission hours analysis
+    $sql = "
+        SELECT 
+            HOUR(waktu_submit) as hour, COUNT(*) as count
+        FROM hasil_ujian 
+        WHERE id_ujian = ?
+        GROUP BY HOUR(waktu_submit)
+        ORDER BY hour
+    ";
+    $result = fetchAllPrepared($conn, $sql, [$selected_ujian], "i");
+    $submission_by_hour = [];
+    for ($i = 0; $i < 24; $i++) {
+        $submission_by_hour[$i] = 0;
+    }
+    foreach ($result as $row) {
+        $submission_by_hour[(int)$row['hour']] = $row['count'];
+    }
+    $analytics['submission_by_hour'] = $submission_by_hour;
+    $analytics['peak_hour'] = array_search(max($submission_by_hour), $submission_by_hour);
+    
+    // Recent submissions
+    $sql = "
         SELECT nama, nis, total_skor, waktu_submit
         FROM hasil_ujian 
         WHERE id_ujian = ?
         ORDER BY waktu_submit DESC
         LIMIT 10
-    ");
-    $stmt->bind_param("i", $selected_ujian);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $analytics['recent_submissions'] = $result->fetch_all(MYSQLI_ASSOC);
-    $stmt->close();
+    ";
+    $analytics['recent_submissions'] = fetchAllPrepared($conn, $sql, [$selected_ujian], "i");
     
-    $stmt = $conn->prepare("
+    // Top scorers
+    $sql = "
         SELECT nama, nis, total_skor, kelas
         FROM hasil_ujian 
         WHERE id_ujian = ?
         ORDER BY total_skor DESC
         LIMIT 5
-    ");
-    $stmt->bind_param("i", $selected_ujian);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $analytics['top_scorers'] = $result->fetch_all(MYSQLI_ASSOC);
-    $stmt->close();
+    ";
+    $analytics['top_scorers'] = fetchAllPrepared($conn, $sql, [$selected_ujian], "i");
     
-    $stmt = $conn->prepare("
+    // Students needing remedial
+    $sql = "
         SELECT h.id, h.nama, h.nis, h.kelas, h.total_skor
         FROM hasil_ujian h
         WHERE h.id_ujian = ? AND h.total_skor < ?
         ORDER BY h.total_skor ASC
-    ");
-    $stmt->bind_param("ii", $selected_ujian, $kkm);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $analytics['needs_remedi_list'] = $result->fetch_all(MYSQLI_ASSOC);
+    ";
+    $analytics['needs_remedi_list'] = fetchAllPrepared($conn, $sql, [$selected_ujian, $kkm], "ii");
     $analytics['needs_remedi'] = count($analytics['needs_remedi_list']);
-    $stmt->close();
     
-    // Get list of students who already have remedi
-    $stmt = $conn->prepare("SELECT nis FROM izin_remedi WHERE id_ujian = ?");
-    $stmt->bind_param("i", $selected_ujian);
-    $stmt->execute();
-    $result = $stmt->get_result();
+    // Class-wise performance breakdown
+    $sql = "
+        SELECT 
+            kelas,
+            COUNT(*) as total_students,
+            AVG(total_skor) as avg_score,
+            SUM(CASE WHEN total_skor >= ? THEN 1 ELSE 0 END) as passed,
+            MIN(total_skor) as min_score,
+            MAX(total_skor) as max_score
+        FROM hasil_ujian 
+        WHERE id_ujian = ?
+        GROUP BY kelas
+        ORDER BY kelas
+    ";
+    $result = fetchAllPrepared($conn, $sql, [$kkm, $selected_ujian], "ii");
+    $class_stats = [];
+    foreach ($result as $row) {
+        $row['pass_rate'] = $row['total_students'] > 0 ? round(($row['passed'] / $row['total_students']) * 100, 1) : 0;
+        $row['avg_score'] = round($row['avg_score'], 1);
+        $class_stats[] = $row;
+    }
+    $analytics['class_stats'] = $class_stats;
+    
+    // Get list of students who already have remedial permission
+    $sql = "SELECT nis FROM izin_remedi WHERE id_ujian = ?";
+    $result = fetchAllPrepared($conn, $sql, [$selected_ujian], "i");
     $remedi_given = [];
-    while ($row = $result->fetch_assoc()) {
+    foreach ($result as $row) {
         $remedi_given[] = $row['nis'];
     }
-    $stmt->close();
     $analytics['remedi_given'] = $remedi_given;
     
-    $stmt = $conn->prepare("
+    // Question-level statistics
+    $question_stats = [];
+    
+    // Get all soal for this ujian
+    $sql = "SELECT id, pertanyaan, kunci_jawaban, kategori FROM soal WHERE id_ujian = ?";
+    $soal_data = [];
+    $result = fetchAllPrepared($conn, $sql, [$selected_ujian], "i");
+    foreach ($result as $row) {
+        $soal_data[$row['id']] = $row;
+    }
+    
+    // Get all hasil_ujian with detail_jawaban
+    $sql = "SELECT detail_jawaban FROM hasil_ujian WHERE id_ujian = ? AND detail_jawaban IS NOT NULL";
+    $result = fetchAllPrepared($conn, $sql, [$selected_ujian], "i");
+    
+    foreach ($result as $row) {
+        $detail = json_decode($row['detail_jawaban'], true);
+        if (!is_array($detail)) continue;
+        
+        foreach ($detail as $item) {
+            $qid = $item['soal_id'];  // Get soal_id FROM JSON
+            if (!isset($soal_data[$qid])) continue;  // Skip if soal not found
+            
+            if (!isset($question_stats[$qid])) {
+                $kat = $soal_data[$qid]['kategori'] ?? '';
+                // Handle '0', 0, empty string, or null
+                if (empty($kat) || $kat === '0' || $kat === 0) {
+                    $kat = 'Umum';
+                }
+                
+                $question_stats[$qid] = [
+                    'soal_id' => $qid,
+                    'pertanyaan' => $soal_data[$qid]['pertanyaan'],
+                    'kunci_jawaban' => $soal_data[$qid]['kunci_jawaban'],
+                    'kategori' => $kat,
+                    'correct_count' => 0,
+                    'total_answers' => 0,
+                    'total_poin' => 0,
+                    'correct_poin' => 0
+                ];
+            }
+            $question_stats[$qid]['total_answers']++;
+            $question_stats[$qid]['total_poin'] += $item['poin_diperoleh'] ?? 0;
+            
+            if ($item['is_correct']) {
+                $question_stats[$qid]['correct_count']++;
+                $question_stats[$qid]['correct_poin'] += $item['poin_diperoleh'] ?? 0;
+            }
+        }
+    }
+    
+    // Calculate averages and sort by success rate
+    foreach ($question_stats as &$q) {
+        $q['avg_poin'] = $q['total_answers'] > 0 ? $q['total_poin'] / $q['total_answers'] : 0;
+        $q['success_rate'] = $q['total_answers'] > 0 ? ($q['correct_count'] / $q['total_answers']) : 0;
+    }
+    
+    uasort($question_stats, function($a, $b) {
+        return $a['success_rate'] <=> $b['success_rate'];
+    });
+    
+    $analytics['question_analysis'] = array_slice(array_values($question_stats), 0, 20);
+    
+    // Get completion rate and remedial given count
+    $sql = "
         SELECT COUNT(DISTINCT h.nis) as completed, 
                (SELECT COUNT(*) FROM izin_remedi WHERE id_ujian = ?) as remedi_given
         FROM hasil_ujian h
         WHERE h.id_ujian = ?
-    ");
-    $stmt->bind_param("ii", $selected_ujian, $selected_ujian);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $completion = $result->fetch_assoc();
-    $stmt->close();
+    ";
+    $completion = fetchRowPrepared($conn, $sql, [$selected_ujian, $selected_ujian], "ii");
     
     $analytics['completion_rate'] = $stats['total'] > 0 ? round(($completion['completed'] / $stats['total']) * 100, 1) : 0;
 }
 
 $ujian_judul = '';
-if ($selected_ujian > 0) {
-    $stmt = $conn->prepare("SELECT judul_ujian FROM ujian WHERE id = ?");
-    $stmt->bind_param("i", $selected_ujian);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $ujian_data = $result->fetch_assoc();
+$sql = "SELECT judul_ujian FROM ujian WHERE id = ?";
+$ujian_data = fetchRowPrepared($conn, $sql, [$selected_ujian], "i");
+if ($ujian_data) {
     $ujian_judul = $ujian_data['judul_ujian'];
-    $stmt->close();
+}
+
+if (isset($_GET['export']) && $_GET['export'] === 'csv' && $selected_ujian > 0) {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=analytics_' . $selected_ujian . '_' . date('Y-m-d') . '.csv');
+    
+    $output = fopen('php://output', 'w');
+    
+    // Add BOM for Excel compatibility
+    fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+    
+    // Summary section
+    fputcsv($output, ['Analytics Report - ' . $ujian_judul]);
+    fputcsv($output, ['Generated', date('Y-m-d H:i:s')]);
+    fputcsv($output, []);
+    
+    fputcsv($output, ['Summary Statistics']);
+    fputcsv($output, ['Metric', 'Value']);
+    fputcsv($output, ['Total Participants', $analytics['total_peserta']]);
+    fputcsv($output, ['Average Score (Original)', $analytics['avg_original']]);
+    fputcsv($output, ['Average Score (Final)', $analytics['avg_score']]);
+    fputcsv($output, ['Completion Rate (%)', $analytics['completion_rate']]);
+    fputcsv($output, ['Needs Remedial', $analytics['needs_remedi']]);
+    fputcsv($output, []);
+    
+    // Grade distribution
+    fputcsv($output, ['Grade Distribution']);
+    fputcsv($output, ['Grade', 'Count']);
+    foreach ($analytics['grade_distribution'] as $grade => $count) {
+        fputcsv($output, [$grade, $count]);
+    }
+    fputcsv($output, []);
+    
+    // Score ranges
+    fputcsv($output, ['Score Ranges']);
+    fputcsv($output, ['Range', 'Count']);
+    foreach ($analytics['score_ranges'] as $range => $count) {
+        fputcsv($output, [$range, $count]);
+    }
+    fputcsv($output, []);
+    
+    // Top scorers
+    fputcsv($output, ['Top Scorers']);
+    fputcsv($output, ['Rank', 'Name', 'NIS', 'Score']);
+    foreach ($analytics['top_scorers'] as $index => $scorer) {
+        fputcsv($output, [$index + 1, $scorer['nama'], $scorer['nis'], $scorer['total_skor']]);
+    }
+    fputcsv($output, []);
+    
+    // Students needing remedial
+    fputcsv($output, ['Students Needing Remedial (Score < ' . $kkm . ')']);
+    fputcsv($output, ['Name', 'NIS', 'Class', 'Score']);
+    foreach ($analytics['needs_remedi_list'] as $student) {
+        fputcsv($output, [$student['nama'], $student['nis'], $student['kelas'], $student['total_skor']]);
+    }
+    fputcsv($output, []);
+    
+    // Question analysis
+    fputcsv($output, ['Question Analysis (Lowest Success Rate)']);
+    fputcsv($output, ['Question ID', 'Category', 'Question', 'Correct Count', 'Total Answers', 'Success Rate (%)', 'Avg Poin']);
+    foreach ($analytics['question_analysis'] as $qa) {
+        fputcsv($output, [
+            $qa['soal_id'],
+            $qa['kategori'],
+            substr($qa['pertanyaan'], 0, 100),
+            $qa['correct_count'],
+            $qa['total_answers'],
+            round($qa['success_rate'] * 100, 1),
+            round($qa['avg_poin'], 1)
+        ]);
+    }
+    
+    fclose($output);
+    exit;
 }
 ?>
 <!DOCTYPE html>
@@ -336,12 +516,36 @@ if ($selected_ujian > 0) {
             flex-wrap: wrap;
         }
         
-        .filter-section select {
+        .filter-section select,
+        .filter-section input[type="number"] {
             padding: 0.6rem 1rem;
             border: 2px solid #e2e8f0;
             border-radius: 8px;
             font-size: 0.95rem;
             min-width: 300px;
+        }
+        
+        .filter-section input[type="number"] {
+            min-width: 80px;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         }
         
         .stats-grid {
@@ -463,7 +667,9 @@ if ($selected_ujian > 0) {
             font-weight: 500;
         }
         
+        .badge-primary { background: #e0e7ff; color: #667eea; }
         .badge-success { background: #d1fae5; color: #10b981; }
+        .badge-warning { background: #fef3c7; color: #f59e0b; }
         .badge-danger { background: #fee2e2; color: #ef4444; }
         
         .btn-sm {
@@ -496,58 +702,11 @@ if ($selected_ujian > 0) {
             margin-bottom: 1rem;
         }
         
-        .table-responsive {
-            overflow-x: auto;
-        }
+        .fw-semibold { font-weight: 600; }
         
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        
-        th, td {
-            padding: 0.75rem;
-            text-align: left;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        
-        th {
-            background: #f8fafc;
-            font-weight: 600;
-            color: #64748b;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-        }
-        
-        .badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-        
-        .badge-primary { background: #e0e7ff; color: #667eea; }
-        .badge-success { background: #d1fae5; color: #10b981; }
-        .badge-warning { background: #fef3c7; color: #f59e0b; }
-        .badge-danger { background: #fee2e2; color: #ef4444; }
-        
-        .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: #94a3b8;
-        }
-        
-        .empty-state i {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-        }
-        
-        @media (max-width: 768px) {
-            .charts-grid {
-                grid-template-columns: 1fr;
-            }
-        }
+        .d-flex { display: flex; }
+        .align-items-center { align-items: center; }
+        .gap-2 { gap: 0.5rem; }
     </style>
 </head>
 <body>
@@ -555,7 +714,7 @@ if ($selected_ujian > 0) {
         <div class="sidebar-brand text-center">
             <div class="school-logo mb-2">
                 <?php if ($sekolah['logo'] && file_exists('../uploads/' . $sekolah['logo'])): ?>
-                    <img src="../uploads/<?= $sekolah['logo'] ?>" alt="Logo" style="width: 100%; height: 100%; object-fit: contain; border-radius: 50%;">
+                    <img src="../uploads/<?= htmlspecialchars($sekolah['logo']) ?>" alt="Logo" style="width: 100%; height: 100%; object-fit: contain; border-radius: 50%;">
                 <?php else: ?>
                     <i class="bi bi-mortarboard-fill" style="font-size: 1.8rem;"></i>
                 <?php endif; ?>
@@ -593,14 +752,19 @@ if ($selected_ujian > 0) {
                 <select name="ujian" id="ujian" onchange="this.form.submit()">
                     <option value="0">-- Pilih Ujian --</option>
                     <?php while ($ujian = $ujian_list->fetch_assoc()): ?>
-                    <option value="<?= $ujian['id'] ?>" <?= $selected_ujian == $ujian['id'] ? 'selected' : '' ?>>
+                    <option value="<?= htmlspecialchars($ujian['id']) ?>" <?= $selected_ujian == $ujian['id'] ? 'selected' : '' ?>>
                         <?= htmlspecialchars($ujian['judul_ujian']) ?>
                     </option>
                     <?php endwhile; ?>
                 </select>
                 <label for="kkm" style="font-weight: 600; margin-left: 1rem;">KKM (Kriteria Ketuntasan Minimal):</label>
                 <input type="number" name="kkm" id="kkm" value="<?= $kkm ?>" min="0" max="100" style="padding: 0.6rem 1rem; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem; width: 80px;">
-                <button type="submit" class="btn btn-primary btn-sm" style="margin-left: 0.5rem;">Terapkan</button>
+                <button type="submit" class="btn btn-primary">Terapkan</button>
+                <?php if ($selected_ujian > 0): ?>
+                <a href="?ujian=<?= $selected_ujian ?>&kkm=<?= $kkm ?>&export=csv" class="btn btn-success" style="margin-left: 0.5rem;">
+                    <i class="bi bi-download"></i> Export CSV
+                </a>
+                <?php endif; ?>
             </form>
         </div>
         
@@ -627,8 +791,8 @@ if ($selected_ujian > 0) {
             
             <div class="stat-card danger">
                 <div class="stat-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
-                <div class="stat-value"><?= $analytics['needs_remedi'] ?></div>
-                <div class="stat-label">Butuh Remedi (KKM <?= $kkm ?>)</div>
+                <div class="stat-value"><?= $analytics['total_violations'] ?></div>
+                <div class="stat-label">Total Pelanggaran</div>
             </div>
         </div>
         
@@ -637,6 +801,22 @@ if ($selected_ujian > 0) {
                 <h3><i class="bi bi-pie-chart-fill me-2"></i>Distribusi Grade</h3>
                 <div class="chart-container">
                     <canvas id="gradeChart"></canvas>
+                </div>
+                <div class="mt-3 small">
+                    <?php 
+                    $grade_a_start = $kkm + 17;
+                    $grade_b_start = $kkm + 9;
+                    $grade_c_start = $kkm;
+                    $grade_d_start = $kkm - 15;
+                    $grade_e_end = $kkm - 16;
+                    ?>
+                    <div class="d-flex flex-wrap gap-3 justify-content-center">
+                        <span class="badge bg-success">A (<?= $grade_a_start ?>-100) Sangat Baik</span>
+                        <span class="badge bg-primary">B (<?= $grade_b_start ?>-<?= $grade_a_start-1 ?>) Baik</span>
+                        <span class="badge bg-warning">C (<?= $grade_c_start ?>-<?= $grade_b_start-1 ?>) Cukup (Tuntas)</span>
+                        <span class="badge bg-danger">D (<?= $grade_d_start ?>-<?= $grade_c_start-1 ?>) Perlu Bimbingan</span>
+                        <span class="badge bg-dark">E (0-<?= $grade_e_end ?>) Belum Tuntas</span>
+                    </div>
                 </div>
             </div>
             
@@ -653,6 +833,20 @@ if ($selected_ujian > 0) {
                 <h3><i class="bi bi-shield-exclamation me-2"></i>Pelanggaran per Jam</h3>
                 <div class="chart-container">
                     <canvas id="violationsChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-card">
+                <h3><i class="bi bi-clock-fill me-2"></i>Peak Jam Submit (Puncak: <?= $analytics['peak_hour'] ?>:00)</h3>
+                <div class="chart-container">
+                    <canvas id="submissionChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-card">
+                <h3><i class="bi bi-bullseye me-2"></i>Question Difficulty Radar</h3>
+                <div class="chart-container">
+                    <canvas id="questionRadarChart"></canvas>
                 </div>
             </div>
             
@@ -686,7 +880,7 @@ if ($selected_ujian > 0) {
                                     <?= $sub['total_skor'] ?>
                                 </span>
                             </td>
-                            <td class="text-muted"><?= date('d/m/Y H:i', strtotime($sub['waktu_submit'])) ?></td>
+                            <td class="text-muted"><?= htmlspecialchars(date('d/m/Y H:i', strtotime($sub['waktu_submit']))) ?></td>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -721,9 +915,10 @@ if ($selected_ujian > 0) {
                                     <?php if (in_array($siswa['nis'], $analytics['remedi_given'])): ?>
                                         <span class="badge badge-success"><i class="bi bi-check-circle"></i> Sudah</span>
                                     <?php else: ?>
-                                        <form method="POST" action="rekap_nilai.php?ujian=<?= $selected_ujian ?>" style="display:inline;">
-                                            <input type="hidden" name="id_hasil" value="<?= $siswa['id'] ?>">
-                                            <input type="hidden" name="id_ujian" value="<?= $selected_ujian ?>">
+                                        <form method="POST" action="rekap_nilai.php?ujian=<?= htmlspecialchars($selected_ujian) ?>" style="display:inline;">
+                                            <input type="hidden" name="csrf_token" value="<?= $csrf_token ?>">
+                                            <input type="hidden" name="id_hasil" value="<?= htmlspecialchars($siswa['id']) ?>">
+                                            <input type="hidden" name="id_ujian" value="<?= htmlspecialchars($selected_ujian) ?>">
                                             <button type="submit" name="give_remedi" class="btn btn-sm btn-success">
                                                 <i class="bi bi-arrow-repeat"></i> Beri Remedi
                                             </button>
@@ -743,6 +938,125 @@ if ($selected_ujian > 0) {
             <?php endif; ?>
         </div>
         
+        <!-- Question Analysis -->
+        <div class="table-section">
+            <h3><i class="bi bi-clipboard-data me-2"></i>Analisis Butir Soal (Top 20 Terburuk)</h3>
+            <?php if (!empty($analytics['question_analysis'])): ?>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>No</th>
+                                <th>ID Soal</th>
+                                <th>Kategori</th>
+                                <th>Pertanyaan</th>
+                                <th>Kunci</th>
+                                <th>Benar</th>
+                                <th>Total</th>
+                                <th>% Berhasil</th>
+                                <th>Rata-rata Poin</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php $no = 1; foreach ($analytics['question_analysis'] as $qa): ?>
+                            <tr>
+                                <td><?= $no++ ?></td>
+                                <td><span class="badge badge-primary">#<?= $qa['soal_id'] ?></span></td>
+                                <td>
+                                    <?php 
+                                    $kat_display = $qa['kategori'] ?? 'Umum';
+                                    if (empty($kat_display) || $kat_display === '0' || $kat_display === 0) {
+                                        if ($qa['success_rate'] >= 0.7) {
+                                            $kat_display = 'Mudah';
+                                        } elseif ($qa['success_rate'] >= 0.4) {
+                                            $kat_display = 'Sedang';
+                                        } else {
+                                            $kat_display = 'Sulit';
+                                        }
+                                    }
+                                    ?>
+                                    <span class="badge <?= $kat_display == 'Mudah' ? 'badge-success' : ($kat_display == 'Sedang' ? 'badge-warning' : 'badge-danger') ?>">
+                                        <?= htmlspecialchars($kat_display) ?>
+                                    </span>
+                                </td>
+                                <td class="fw-semibold"><?= htmlspecialchars(substr($qa['pertanyaan'], 0, 80)) ?>...</td>
+                                <td><span class="badge badge-success"><?= htmlspecialchars($qa['kunci_jawaban']) ?></span></td>
+                                <td>
+                                    <span class="badge <?= $qa['correct_count'] > ($qa['total_answers'] / 2) ? 'badge-success' : 'badge-danger' ?>">
+                                        <?= $qa['correct_count'] ?>
+                                    </span>
+                                </td>
+                                <td><?= $qa['total_answers'] ?></td>
+                                <td>
+                                    <?php $percent = round($qa['success_rate'] * 100, 1); ?>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div style="background: #e2e8f0; height: 8px; border-radius: 4px; width: 100px; overflow: hidden;">
+                                            <div style="background: <?= $percent >= 70 ? '#10b981' : ($percent >= 50 ? '#f59e0b' : '#ef4444') ?>; height: 100%; width: <?= $percent ?>%;"></div>
+                                        </div>
+                                        <span class="fw-bold" style="color: <?= $percent >= 70 ? '#10b981' : ($percent >= 50 ? '#f59e0b' : '#ef4444') ?>;"><?= $percent ?>%</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge <?= $qa['avg_poin'] >= 7.5 ? 'badge-success' : ($qa['avg_poin'] >= 5 ? 'badge-warning' : 'badge-danger') ?>">
+                                        <?= round($qa['avg_poin'], 1) ?>
+                                    </span>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <div class="empty-state">
+                    <i class="bi bi-clipboard-x"></i>
+                    <p>Belum ada data analisis soal.</p>
+                </div>
+            <?php endif; ?>
+        </div>
+        
+        <!-- Class-wise Performance -->
+        <?php if (!empty($analytics['class_stats'])): ?>
+        <div class="table-section">
+            <h3><i class="bi bi-building me-2"></i>Performa per Kelas</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Kelas</th>
+                            <th>Total Siswa</th>
+                            <th>Rata-rata Skor</th>
+                            <th>Nilai Terendah</th>
+                            <th>Nilai Tertinggi</th>
+                            <th>Pass Rate (≥ <?= $kkm ?>)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($analytics['class_stats'] as $cs): ?>
+                        <tr>
+                            <td class="fw-semibold"><?= htmlspecialchars($cs['kelas']) ?></td>
+                            <td><?= $cs['total_students'] ?></td>
+                            <td>
+                                <span class="badge <?= $cs['avg_score'] >= $kkm ? 'badge-success' : 'badge-danger' ?>">
+                                    <?= $cs['avg_score'] ?>
+                                </span>
+                            </td>
+                            <td><?= $cs['min_score'] ?></td>
+                            <td><?= $cs['max_score'] ?></td>
+                            <td>
+                                <div class="progress" style="height: 20px; background: #e2e8f0; border-radius: 10px; overflow: hidden;">
+                                    <div style="width: <?= $cs['pass_rate'] ?>%; background: <?= $cs['pass_rate'] >= 70 ? '#10b981' : ($cs['pass_rate'] >= 50 ? '#f59e0b' : '#ef4444') ?>; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.8rem; font-weight: 600;">
+                                        <?= $cs['pass_rate'] ?>%
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php endif; ?>
+        
         <?php else: ?>
         <div class="empty-state">
             <i class="bi bi-bar-chart"></i>
@@ -758,7 +1072,20 @@ if ($selected_ujian > 0) {
         new Chart(gradeCtx, {
             type: 'doughnut',
             data: {
-                labels: ['A (85-100)', 'B (70-84)', 'C (55-69)', 'D (40-54)', 'E (0-39)'],
+                labels: [
+                    <?php 
+                    $grade_a = ($kkm+17) . "-100";
+                    $grade_b = ($kkm+9) . "-" . ($kkm+16);
+                    $grade_c = $kkm . "-" . ($kkm+8);
+                    $grade_d = ($kkm-15) . "-" . ($kkm-1);
+                    $grade_e = "0-" . ($kkm-16);
+                    echo "'$grade_a',\n";
+                    echo "'$grade_b',\n";
+                    echo "'$grade_c',\n";
+                    echo "'$grade_d',\n";
+                    echo "'$grade_e'"
+                    ?>
+                ],
                 datasets: [{
                     data: [
                         <?= $analytics['grade_distribution']['A'] ?>,
@@ -844,6 +1171,82 @@ if ($selected_ujian > 0) {
                     y: {
                         beginAtZero: true,
                         ticks: { stepSize: 1 }
+                    }
+                }
+            }
+        });
+        
+        // Peak submission hours chart
+        const submissionCtx = document.getElementById('submissionChart').getContext('2d');
+        new Chart(submissionCtx, {
+            type: 'line',
+            data: {
+                labels: Array.from({length: 24}, (_, i) => i + ':00'),
+                datasets: [{
+                    label: 'Jumlah Submit',
+                    data: [<?= implode(', ', $analytics['submission_by_hour']) ?>],
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+        
+        // Question Difficulty Radar Chart (Top 10 worst questions)
+        const qLabels = [];
+        const qSuccessRate = [];
+        const qAvgPoin = [];
+        <?php 
+        $qCount = 0;
+        foreach($analytics['question_analysis'] as $qa) {
+            if ($qCount >= 10) break;
+            echo "qLabels.push('Q" . $qa['soal_id'] . "');\n";
+            echo "qSuccessRate.push(" . round($qa['success_rate'] * 100, 1) . ");\n";
+            echo "qAvgPoin.push(" . round($qa['avg_poin'], 1) . ");\n";
+            $qCount++;
+        }
+        ?>
+        
+        const radarCtx = document.getElementById('questionRadarChart').getContext('2d');
+        new Chart(radarCtx, {
+            type: 'radar',
+            data: {
+                labels: qLabels,
+                datasets: [{
+                    label: 'Success Rate (%)',
+                    data: qSuccessRate,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                    borderWidth: 2
+                }, {
+                    label: 'Avg Poin',
+                    data: qAvgPoin,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        max: 10
                     }
                 }
             }
