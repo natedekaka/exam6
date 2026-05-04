@@ -246,7 +246,7 @@ if ($selected_ujian > 0) {
     $question_stats = [];
     
     // Get all soal for this ujian
-    $sql = "SELECT id, pertanyaan, kunci_jawaban, kategori FROM soal WHERE id_ujian = ?";
+    $sql = "SELECT id, pertanyaan, kunci_jawaban FROM soal WHERE id_ujian = ?";
     $soal_data = [];
     $result = fetchAllPrepared($conn, $sql, [$selected_ujian], "i");
     foreach ($result as $row) {
@@ -266,21 +266,15 @@ if ($selected_ujian > 0) {
             if (!isset($soal_data[$qid])) continue;  // Skip if soal not found
             
             if (!isset($question_stats[$qid])) {
-                $kat = $soal_data[$qid]['kategori'] ?? '';
-                // Handle '0', 0, empty string, or null
-                if (empty($kat) || $kat === '0' || $kat === 0) {
-                    $kat = 'Umum';
-                }
-                
                 $question_stats[$qid] = [
                     'soal_id' => $qid,
                     'pertanyaan' => $soal_data[$qid]['pertanyaan'],
                     'kunci_jawaban' => $soal_data[$qid]['kunci_jawaban'],
-                    'kategori' => $kat,
                     'correct_count' => 0,
                     'total_answers' => 0,
                     'total_poin' => 0,
-                    'correct_poin' => 0
+                    'correct_poin' => 0,
+                    'success_rate' => 0
                 ];
             }
             $question_stats[$qid]['total_answers']++;
@@ -324,79 +318,122 @@ if ($ujian_data) {
     $ujian_judul = $ujian_data['judul_ujian'];
 }
 
-if (isset($_GET['export']) && $_GET['export'] === 'csv' && $selected_ujian > 0) {
-    header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename=analytics_' . $selected_ujian . '_' . date('Y-m-d') . '.csv');
+if (isset($_GET['export']) && $_GET['export'] === 'excel' && $selected_ujian > 0) {
+    // Clear any output buffering
+    while (ob_get_level()) ob_end_clean();
     
-    $output = fopen('php://output', 'w');
-    
-    // Add BOM for Excel compatibility
-    fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
-    
-    // Summary section
-    fputcsv($output, ['Analytics Report - ' . $ujian_judul]);
-    fputcsv($output, ['Generated', date('Y-m-d H:i:s')]);
-    fputcsv($output, []);
-    
-    fputcsv($output, ['Summary Statistics']);
-    fputcsv($output, ['Metric', 'Value']);
-    fputcsv($output, ['Total Participants', $analytics['total_peserta']]);
-    fputcsv($output, ['Average Score (Original)', $analytics['avg_original']]);
-    fputcsv($output, ['Average Score (Final)', $analytics['avg_score']]);
-    fputcsv($output, ['Completion Rate (%)', $analytics['completion_rate']]);
-    fputcsv($output, ['Needs Remedial', $analytics['needs_remedi']]);
-    fputcsv($output, []);
-    
-    // Grade distribution
-    fputcsv($output, ['Grade Distribution']);
-    fputcsv($output, ['Grade', 'Count']);
-    foreach ($analytics['grade_distribution'] as $grade => $count) {
-        fputcsv($output, [$grade, $count]);
-    }
-    fputcsv($output, []);
-    
-    // Score ranges
-    fputcsv($output, ['Score Ranges']);
-    fputcsv($output, ['Range', 'Count']);
-    foreach ($analytics['score_ranges'] as $range => $count) {
-        fputcsv($output, [$range, $count]);
-    }
-    fputcsv($output, []);
-    
-    // Top scorers
-    fputcsv($output, ['Top Scorers']);
-    fputcsv($output, ['Rank', 'Name', 'NIS', 'Score']);
-    foreach ($analytics['top_scorers'] as $index => $scorer) {
-        fputcsv($output, [$index + 1, $scorer['nama'], $scorer['nis'], $scorer['total_skor']]);
-    }
-    fputcsv($output, []);
-    
-    // Students needing remedial
-    fputcsv($output, ['Students Needing Remedial (Score < ' . $kkm . ')']);
-    fputcsv($output, ['Name', 'NIS', 'Class', 'Score']);
-    foreach ($analytics['needs_remedi_list'] as $student) {
-        fputcsv($output, [$student['nama'], $student['nis'], $student['kelas'], $student['total_skor']]);
-    }
-    fputcsv($output, []);
-    
-    // Question analysis
-    fputcsv($output, ['Question Analysis (Lowest Success Rate)']);
-    fputcsv($output, ['Question ID', 'Category', 'Question', 'Correct Count', 'Total Answers', 'Success Rate (%)', 'Avg Poin']);
-    foreach ($analytics['question_analysis'] as $qa) {
-        fputcsv($output, [
-            $qa['soal_id'],
-            $qa['kategori'],
-            substr($qa['pertanyaan'], 0, 100),
-            $qa['correct_count'],
-            $qa['total_answers'],
-            round($qa['success_rate'] * 100, 1),
-            round($qa['avg_poin'], 1)
-        ]);
-    }
-    
-    fclose($output);
+    header('Content-Type: application/vnd.ms-excel; charset=utf-8');
+    header('Content-Disposition: attachment; filename=analytics_' . $selected_ujian . '_' . date('Y-m-d') . '.xls');
+    header('Expires: 0');
+    header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+    header('Pragma: public');
+    ?>
+    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            table { border-collapse: collapse; width: 100%; }
+            th { background-color: #4F46E5; color: white; font-weight: bold; padding: 8px; text-align: left; }
+            td { border: 1px solid #ddd; padding: 6px; }
+            .header { background-color: #4F46E5; color: white; font-weight: bold; }
+        </style>
+    </head>
+    <body>
+        <table>
+            <tr class="header">
+                <th colspan="2">Analytics Report - <?= htmlspecialchars($ujian_judul, ENT_XML1, 'UTF-8') ?></th>
+            </tr>
+            <tr>
+                <td>Generated</td>
+                <td><?= date('Y-m-d H:i:s') ?></td>
+            </tr>
+        </table>
+        <br>
+        
+        <table>
+            <tr class="header"><th colspan="2">Summary Statistics</th></tr>
+            <tr><th>Metric</th><th>Value</th></tr>
+            <tr><td>Total Participants</td><td><?= $analytics['total_peserta'] ?></td></tr>
+            <tr><td>Average Score (Original)</td><td><?= $analytics['avg_original'] ?></td></tr>
+            <tr><td>Average Score (Final)</td><td><?= $analytics['avg_score'] ?></td></tr>
+            <tr><td>Completion Rate (%)</td><td><?= $analytics['completion_rate'] ?></td></tr>
+            <tr><td>Needs Remedial</td><td><?= $analytics['needs_remedi'] ?></td></tr>
+        </table>
+        <br>
+        
+        <table>
+            <tr class="header"><th colspan="2">Grade Distribution</th></tr>
+            <tr><th>Grade</th><th>Count</th></tr>
+            <?php foreach ($analytics['grade_distribution'] as $grade => $count): ?>
+            <tr><td><?= $grade ?></td><td><?= $count ?></td></tr>
+            <?php endforeach; ?>
+        </table>
+        <br>
+        
+        <table>
+            <tr class="header"><th colspan="2">Score Ranges</th></tr>
+            <tr><th>Range</th><th>Count</th></tr>
+            <?php foreach ($analytics['score_ranges'] as $range => $count): ?>
+            <tr><td><?= $range ?></td><td><?= $count ?></td></tr>
+            <?php endforeach; ?>
+        </table>
+        <br>
+        
+        <table>
+            <tr class="header"><th colspan="3">Top Scorers</th></tr>
+            <tr><th>Name</th><th>NIS</th><th>Score</th></tr>
+            <?php foreach ($analytics['top_scorers'] as $s): ?>
+            <tr>
+                <td><?= htmlspecialchars($s['nama'], ENT_XML1, 'UTF-8') ?></td>
+                <td><?= htmlspecialchars($s['nis'], ENT_XML1, 'UTF-8') ?></td>
+                <td><?= $s['total_skor'] ?></td>
+            </tr>
+            <?php endforeach; ?>
+        </table>
+        <br>
+        
+        <table>
+            <tr class="header"><th colspan="4">Students Needing Remedial (Score < <?= $kkm ?>)</th></tr>
+            <tr><th>Name</th><th>NIS</th><th>Class</th><th>Score</th></tr>
+            <?php foreach ($analytics['needs_remedi_list'] as $student): ?>
+            <tr>
+                <td><?= htmlspecialchars($student['nama'], ENT_XML1, 'UTF-8') ?></td>
+                <td><?= htmlspecialchars($student['nis'], ENT_XML1, 'UTF-8') ?></td>
+                <td><?= htmlspecialchars($student['kelas'], ENT_XML1, 'UTF-8') ?></td>
+                <td><?= $student['total_skor'] ?></td>
+            </tr>
+            <?php endforeach; ?>
+        </table>
+        <br>
+        
+        <table>
+            <tr class="header"><th colspan="7">Question Analysis (Lowest Success Rate)</th></tr>
+            <tr>
+                <th>Question ID</th><th>Category</th><th>Question</th>
+                <th>Correct</th><th>Total</th><th>Success Rate (%)</th><th>Avg Poin</th>
+            </tr>
+            <?php foreach ($analytics['question_analysis'] as $qa):
+                if ($qa['success_rate'] >= 0.7) $kat = 'Mudah';
+                elseif ($qa['success_rate'] >= 0.4) $kat = 'Sedang';
+                else $kat = 'Sulit';
+            ?>
+            <tr>
+                <td><?= $qa['soal_id'] ?></td>
+                <td><?= htmlspecialchars($kat, ENT_XML1, 'UTF-8') ?></td>
+                <td><?= htmlspecialchars(substr($qa['pertanyaan'], 0, 100), ENT_XML1, 'UTF-8') ?></td>
+                <td><?= $qa['correct_count'] ?></td>
+                <td><?= $qa['total_answers'] ?></td>
+                <td><?= round($qa['success_rate'] * 100, 1) ?></td>
+                <td><?= round($qa['avg_poin'], 1) ?></td>
+            </tr>
+            <?php endforeach; ?>
+        </table>
+    </body>
+    </html>
+    <?php
     exit;
 }
+?><!DOCTYPE html>
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -761,8 +798,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && $selected_ujian > 0) 
                 <input type="number" name="kkm" id="kkm" value="<?= $kkm ?>" min="0" max="100" style="padding: 0.6rem 1rem; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem; width: 80px;">
                 <button type="submit" class="btn btn-primary">Terapkan</button>
                 <?php if ($selected_ujian > 0): ?>
-                <a href="?ujian=<?= $selected_ujian ?>&kkm=<?= $kkm ?>&export=csv" class="btn btn-success" style="margin-left: 0.5rem;">
-                    <i class="bi bi-download"></i> Export CSV
+                <a href="?ujian=<?= $selected_ujian ?>&kkm=<?= $kkm ?>&export=excel" class="btn btn-success" style="margin-left: 0.5rem;">
+                    <i class="bi bi-download"></i> Export Excel
                 </a>
                 <?php endif; ?>
             </form>
@@ -963,22 +1000,19 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && $selected_ujian > 0) 
                                 <td><?= $no++ ?></td>
                                 <td><span class="badge badge-primary">#<?= $qa['soal_id'] ?></span></td>
                                 <td>
-                                    <?php 
-                                    $kat_display = $qa['kategori'] ?? 'Umum';
-                                    if (empty($kat_display) || $kat_display === '0' || $kat_display === 0) {
-                                        if ($qa['success_rate'] >= 0.7) {
-                                            $kat_display = 'Mudah';
-                                        } elseif ($qa['success_rate'] >= 0.4) {
-                                            $kat_display = 'Sedang';
-                                        } else {
-                                            $kat_display = 'Sulit';
-                                        }
-                                    }
-                                    ?>
-                                    <span class="badge <?= $kat_display == 'Mudah' ? 'badge-success' : ($kat_display == 'Sedang' ? 'badge-warning' : 'badge-danger') ?>">
-                                        <?= htmlspecialchars($kat_display) ?>
-                                    </span>
-                                </td>
+                                     <?php
+                                     if ($qa['success_rate'] >= 0.7) {
+                                         $kat_display = 'Mudah';
+                                     } elseif ($qa['success_rate'] >= 0.4) {
+                                         $kat_display = 'Sedang';
+                                     } else {
+                                         $kat_display = 'Sulit';
+                                     }
+                                     ?>
+                                     <span class="badge <?= $kat_display == 'Mudah' ? 'badge-success' : ($kat_display == 'Sedang' ? 'badge-warning' : 'badge-danger') ?>">
+                                         <?= $kat_display ?>
+                                     </span>
+                                 </td>
                                 <td class="fw-semibold"><?= htmlspecialchars(substr($qa['pertanyaan'], 0, 80)) ?>...</td>
                                 <td><span class="badge badge-success"><?= htmlspecialchars($qa['kunci_jawaban']) ?></span></td>
                                 <td>
