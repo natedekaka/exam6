@@ -246,7 +246,7 @@ if ($selected_ujian > 0) {
     $question_stats = [];
     
     // Get all soal for this ujian
-    $sql = "SELECT id, pertanyaan, kunci_jawaban, kategori FROM soal WHERE id_ujian = ?";
+    $sql = "SELECT id, pertanyaan, kunci_jawaban FROM soal WHERE id_ujian = ?";
     $soal_data = [];
     $result = fetchAllPrepared($conn, $sql, [$selected_ujian], "i");
     foreach ($result as $row) {
@@ -266,21 +266,15 @@ if ($selected_ujian > 0) {
             if (!isset($soal_data[$qid])) continue;  // Skip if soal not found
             
             if (!isset($question_stats[$qid])) {
-                $kat = $soal_data[$qid]['kategori'] ?? '';
-                // Handle '0', 0, empty string, or null
-                if (empty($kat) || $kat === '0' || $kat === 0) {
-                    $kat = 'Umum';
-                }
-                
                 $question_stats[$qid] = [
                     'soal_id' => $qid,
                     'pertanyaan' => $soal_data[$qid]['pertanyaan'],
                     'kunci_jawaban' => $soal_data[$qid]['kunci_jawaban'],
-                    'kategori' => $kat,
                     'correct_count' => 0,
                     'total_answers' => 0,
                     'total_poin' => 0,
-                    'correct_poin' => 0
+                    'correct_poin' => 0,
+                    'success_rate' => 0
                 ];
             }
             $question_stats[$qid]['total_answers']++;
@@ -418,13 +412,10 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel' && $selected_ujian > 0
                 <th>Question ID</th><th>Category</th><th>Question</th>
                 <th>Correct</th><th>Total</th><th>Success Rate (%)</th><th>Avg Poin</th>
             </tr>
-            <?php foreach ($analytics['question_analysis'] as $qa): 
-                $kat = $qa['kategori'] ?? 'Umum';
-                if (empty($kat) || $kat === '0' || $kat === 0) {
-                    if ($qa['success_rate'] >= 0.7) $kat = 'Mudah';
-                    elseif ($qa['success_rate'] >= 0.4) $kat = 'Sedang';
-                    else $kat = 'Sulit';
-                }
+            <?php foreach ($analytics['question_analysis'] as $qa):
+                if ($qa['success_rate'] >= 0.7) $kat = 'Mudah';
+                elseif ($qa['success_rate'] >= 0.4) $kat = 'Sedang';
+                else $kat = 'Sulit';
             ?>
             <tr>
                 <td><?= $qa['soal_id'] ?></td>
@@ -1009,22 +1000,19 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel' && $selected_ujian > 0
                                 <td><?= $no++ ?></td>
                                 <td><span class="badge badge-primary">#<?= $qa['soal_id'] ?></span></td>
                                 <td>
-                                    <?php 
-                                    $kat_display = $qa['kategori'] ?? 'Umum';
-                                    if (empty($kat_display) || $kat_display === '0' || $kat_display === 0) {
-                                        if ($qa['success_rate'] >= 0.7) {
-                                            $kat_display = 'Mudah';
-                                        } elseif ($qa['success_rate'] >= 0.4) {
-                                            $kat_display = 'Sedang';
-                                        } else {
-                                            $kat_display = 'Sulit';
-                                        }
-                                    }
-                                    ?>
-                                    <span class="badge <?= $kat_display == 'Mudah' ? 'badge-success' : ($kat_display == 'Sedang' ? 'badge-warning' : 'badge-danger') ?>">
-                                        <?= htmlspecialchars($kat_display) ?>
-                                    </span>
-                                </td>
+                                     <?php
+                                     if ($qa['success_rate'] >= 0.7) {
+                                         $kat_display = 'Mudah';
+                                     } elseif ($qa['success_rate'] >= 0.4) {
+                                         $kat_display = 'Sedang';
+                                     } else {
+                                         $kat_display = 'Sulit';
+                                     }
+                                     ?>
+                                     <span class="badge <?= $kat_display == 'Mudah' ? 'badge-success' : ($kat_display == 'Sedang' ? 'badge-warning' : 'badge-danger') ?>">
+                                         <?= $kat_display ?>
+                                     </span>
+                                 </td>
                                 <td class="fw-semibold"><?= htmlspecialchars(substr($qa['pertanyaan'], 0, 80)) ?>...</td>
                                 <td><span class="badge badge-success"><?= htmlspecialchars($qa['kunci_jawaban']) ?></span></td>
                                 <td>

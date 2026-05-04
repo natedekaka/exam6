@@ -855,6 +855,9 @@ if (isset($_POST['delete_all']) && isset($_POST['id_ujian_batch'])) {
                                 </td>
                                 <td class="text-center">
                                     <div class="d-flex gap-1 justify-content-center">
+                                        <a href="detail_jawaban.php?id_hasil=<?= $hasil['id'] ?>" class="btn btn-sm btn-info" title="Lihat Jawaban">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
                                         <?php if ($hasil['has_remedi']): ?>
                                             <form method="POST" style="display:inline;" onsubmit="return confirm('Cabut izin remedi untuk <?= htmlspecialchars($hasil['nama']) ?>?')">
                                                 <input type="hidden" name="id_hasil" value="<?= $hasil['id'] ?>">
