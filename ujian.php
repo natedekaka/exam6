@@ -2019,7 +2019,23 @@ function initExamFeatures() {
             const answeredCount = Object.keys(answers).length;
             
             if (answeredCount < totalSoal) {
-                alert('Mohon jawab semua soal terlebih dahulu!\nSoal terjawab: ' + answeredCount + '/' + totalSoal);
+                // Log violation for incomplete submit
+                fetch(API_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        action: 'log_violation',
+                        id_ujian: ID_UJIAN,
+                        nis: nis,
+                        jenis_violation: 'incomplete_submit',
+                        detail: 'Siswa mencoba submit dengan jawaban belum lengkap: ' + answeredCount + '/' + totalSoal,
+                        csrf_token: csrfToken,
+                        expected_token: csrfToken
+                    })
+                }).catch(e => console.error('Failed to log violation:', e));
+                
+                // Show custom modal instead of alert (prevents fullscreen exit)
+                showIncompleteModal(answeredCount, totalSoal);
                 return;
             }
             
@@ -2537,6 +2553,42 @@ function initExamFeatures() {
         <?php endif; ?>
         
         init();
+        
+        // Custom modal for incomplete answers (prevents fullscreen exit)
+        function showIncompleteModal(answered, total) {
+            // Remove existing modal if any
+            const existingModal = document.getElementById('incompleteModal');
+            if (existingModal) existingModal.remove();
+            
+            const modal = document.createElement('div');
+            modal.id = 'incompleteModal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;';
+            modal.innerHTML = `
+                <div style="background:white;padding:30px;border-radius:16px;max-width:450px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <div style="width:80px;height:80px;margin:0 auto 20px;background:linear-gradient(135deg,#f59e0b,#fbbf24);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-exclamation-triangle-fill" style="font-size:2.5rem;color:white;"></i>
+                    </div>
+                    <h4 style="font-weight:600;margin-bottom:10px;">Soal Belum Lengkap!</h4>
+                    <p style="color:#6b7280;margin-bottom:20px;">
+                        Anda baru menjawab <strong>${answered}/${total}</strong> soal.<br>
+                        Silakan lengkapi semua jawaban sebelum submit.
+                    </p>
+                    <p style="color:#dc2626;font-size:0.9rem;margin-bottom:20px;">
+                        <i class="bi bi-exclamation-triangle"></i> Pelanggaran telah dicatat.
+                    </p>
+                    <button onclick="document.getElementById('incompleteModal').remove()" 
+                            style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;padding:12px 30px;border-radius:30px;font-weight:600;cursor:pointer;">
+                        <i class="bi bi-arrow-left me-2"></i>Kembali ke Soal
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            // Close on background click
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) modal.remove();
+            });
+        }
     </script>
 </body>
 </html>
