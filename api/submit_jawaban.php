@@ -325,111 +325,146 @@ function handleSubmitFinal($conn, $input) {
         throw new Exception('Identitas tidak lengkap');
     }
     
-    if (!validateUniqueAttempt($conn, $id_ujian, $nis)) {
-        throw new Exception('Anda sudah menyelesaikan ujian ini. Tidak dapat mengubah jawaban.');
+    // === RACE CONDITION PROTECTION: Advisory Lock + Transaction ===
+    $lockName = "submit_lock_{$id_ujian}_{$nis}";
+    $lockResult = $conn->query("SELECT GET_LOCK('$lockName', 15) AS lock_result");
+    $lockRow = $lockResult->fetch_assoc();
+    if (!$lockRow || $lockRow['lock_result'] != 1) {
+        throw new Exception('Gagal mendapatkan kunci submit. Silakan coba lagi.');
     }
     
-    $stmt = $conn->prepare("SELECT * FROM soal WHERE id_ujian = ?");
-    $stmt->bind_param("i", $id_ujian);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $soal_list = [];
-    while ($row = $result->fetch_assoc()) {
-        $soal_list[$row['id']] = $row;
-    }
-    $stmt->close();
-    
-    if (empty($soal_list)) {
-        throw new Exception('Soal tidak ditemukan');
-    }
-    
-    error_log("Submit - Answers received: " . json_encode($answers));
-    error_log("Submit - Total questions: " . count($soal_list));
-    
-    $total_skor = 0;
-    $detail_jawaban = [];
-    
-    foreach ($soal_list as $soal_id => $soal) {
-        $jawaban = isset($answers[(string)$soal_id]) ? $answers[(string)$soal_id] : (isset($answers[$soal_id]) ? $answers[$soal_id] : '');
-        $is_correct = (strtolower($jawaban) === strtolower($soal['kunci_jawaban']));
+    try {
+        // Start transaction
+        $conn->begin_transaction();
         
-        error_log("Question $soal_id: student answer = '$jawaban', correct = '{$soal['kunci_jawaban']}', is_correct = " . ($is_correct ? 'true' : 'false'));
+        // === DUPLICATE CHECK WITH ROW LOCK (FOR UPDATE) ===
+        $checkStmt = $conn->prepare("SELECT id FROM hasil_ujian WHERE id_ujian = ? AND nis = ? LIMIT 1 FOR UPDATE");
+        $checkStmt->bind_param("is", $id_ujian, $nis);
+        $checkStmt->execute();
+        $checkResult = $checkStmt->get_result();
+        if ($checkResult->num_rows > 0) {
+            $checkStmt->close();
+            $conn->rollback();
+            throw new Exception('Anda sudah menyelesaikan ujian ini. Tidak dapat mengubah jawaban.');
+        }
+        $checkStmt->close();
         
-        if ($is_correct) {
-            $total_skor += $soal['poin'];
+        $stmt = $conn->prepare("SELECT * FROM soal WHERE id_ujian = ?");
+        $stmt->bind_param("i", $id_ujian);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $soal_list = [];
+        while ($row = $result->fetch_assoc()) {
+            $soal_list[$row['id']] = $row;
+        }
+        $stmt->close();
+        
+        if (empty($soal_list)) {
+            $conn->rollback();
+            throw new Exception('Soal tidak ditemukan');
         }
         
-        $detail_jawaban[] = [
-            'soal_id' => $soal_id,
-            'pertanyaan' => $soal['pertanyaan'],
-            'jawaban_siswa' => $jawaban,
-            'kunci_jawaban' => $soal['kunci_jawaban'],
-            'is_correct' => $is_correct,
-            'poin' => $soal['poin'],
-            'poin_diperoleh' => $is_correct ? $soal['poin'] : 0,
-            'opsi_a' => $soal['opsi_a'],
-            'opsi_b' => $soal['opsi_b'],
-            'opsi_c' => $soal['opsi_c'],
-            'opsi_d' => $soal['opsi_d'],
-            'opsi_e' => $soal['opsi_e']
-        ];
-    }
-    
-    // Count violations and apply penalty
-    $violation_count = 0;
-    $penalty = 0;
-    $violation_table = $conn->query("SHOW TABLES LIKE 'exam_violations'");
-    if ($violation_table && $violation_table->num_rows > 0) {
-        $stmt_v = $conn->prepare("SELECT COUNT(*) as total FROM exam_violations WHERE id_ujian = ? AND nis = ?");
-        $stmt_v->bind_param("is", $id_ujian, $nis);
-        $stmt_v->execute();
-        $result_v = $stmt_v->get_result();
-        if ($row_v = $result_v->fetch_assoc()) {
-            $violation_count = (int)$row_v['total'];
+        error_log("Submit - Answers received: " . json_encode($answers));
+        error_log("Submit - Total questions: " . count($soal_list));
+        
+        $total_skor = 0;
+        $detail_jawaban = [];
+        
+        foreach ($soal_list as $soal_id => $soal) {
+            $jawaban = isset($answers[(string)$soal_id]) ? $answers[(string)$soal_id] : (isset($answers[$soal_id]) ? $answers[$soal_id] : '');
+            $is_correct = (strtolower($jawaban) === strtolower($soal['kunci_jawaban']));
+            
+            error_log("Question $soal_id: student answer = '$jawaban', correct = '{$soal['kunci_jawaban']}', is_correct = " . ($is_correct ? 'true' : 'false'));
+            
+            if ($is_correct) {
+                $total_skor += $soal['poin'];
+            }
+            
+            $detail_jawaban[] = [
+                'soal_id' => $soal_id,
+                'pertanyaan' => $soal['pertanyaan'],
+                'jawaban_siswa' => $jawaban,
+                'kunci_jawaban' => $soal['kunci_jawaban'],
+                'is_correct' => $is_correct,
+                'poin' => $soal['poin'],
+                'poin_diperoleh' => $is_correct ? $soal['poin'] : 0,
+                'opsi_a' => $soal['opsi_a'],
+                'opsi_b' => $soal['opsi_b'],
+                'opsi_c' => $soal['opsi_c'],
+                'opsi_d' => $soal['opsi_d'],
+                'opsi_e' => $soal['opsi_e']
+            ];
         }
-        $stmt_v->close();
         
-        // Apply penalty: 10 points per violation, max 50% of total score
-        if ($violation_count > 0) {
-            $penalty = min($violation_count * 10, $total_skor * 0.5);
-            $total_skor = max(0, $total_skor - $penalty);
+        // Count violations and apply penalty
+        $violation_count = 0;
+        $penalty = 0;
+        $skor_awal = $total_skor; // Save original score before penalty
+        $violation_table = $conn->query("SHOW TABLES LIKE 'exam_violations'");
+        if ($violation_table && $violation_table->num_rows > 0) {
+            $stmt_v = $conn->prepare("SELECT COUNT(*) as total FROM exam_violations WHERE id_ujian = ? AND nis = ?");
+            $stmt_v->bind_param("is", $id_ujian, $nis);
+            $stmt_v->execute();
+            $result_v = $stmt_v->get_result();
+            if ($row_v = $result_v->fetch_assoc()) {
+                $violation_count = (int)$row_v['total'];
+            }
+            $stmt_v->close();
+            
+            // Apply penalty: 10 points per violation, max 50% of total score
+            if ($violation_count > 0) {
+                $penalty = min($violation_count * 10, $total_skor * 0.5);
+                $total_skor = max(0, $total_skor - $penalty);
+            }
         }
-    }
-    
-    $detail_jawaban_json = json_encode($detail_jawaban);
-    
-    // Check if skor_awal column exists
-    $checkSkorAwal = $conn->query("SHOW COLUMNS FROM hasil_ujian LIKE 'skor_awal'");
-    if (!$checkSkorAwal || $checkSkorAwal->num_rows === 0) {
-        $conn->query("ALTER TABLE hasil_ujian ADD COLUMN skor_awal INT DEFAULT NULL AFTER total_skor");
-    }
-    
-    $checkCols = $conn->query("SHOW COLUMNS FROM hasil_ujian LIKE 'detail_jawaban'");
-    if ($checkCols && $checkCols->num_rows > 0) {
-        $stmt = $conn->prepare("INSERT INTO hasil_ujian (id_ujian, nis, nama, kelas, total_skor, skor_awal, detail_jawaban) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("isssiis", $id_ujian, $nis, $nama, $kelas, $total_skor, $skor_awal, $detail_jawaban_json);
-    } else {
-        $stmt = $conn->prepare("INSERT INTO hasil_ujian (id_ujian, nis, nama, kelas, total_skor, skor_awal) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("isssii", $id_ujian, $nis, $nama, $kelas, $total_skor, $skor_awal);
-    }
-    
-    if ($stmt->execute()) {
-        $insert_id = $stmt->insert_id;
         
-        $conn->query("DELETE FROM jawaban_sementara WHERE id_ujian = $id_ujian AND nis = '$nis'");
+        $detail_jawaban_json = json_encode($detail_jawaban);
         
-        $response['success'] = true;
-        $response['message'] = 'Jawaban berhasil disubmit';
-        $response['skor'] = $total_skor;
-        $response['skor_awal'] = $total_skor + $penalty; // Score before penalty
-        $response['penalty'] = $penalty;
-        $response['violation_count'] = $violation_count;
-        $response['total_soal'] = count($soal_list);
-        $response['jawaban_benar'] = count(array_filter($detail_jawaban, fn($d) => $d['is_correct']));
-    } else {
-        throw new Exception('Gagal menyimpan jawaban: ' . $stmt->error);
+        // Check if skor_awal column exists
+        $checkSkorAwal = $conn->query("SHOW COLUMNS FROM hasil_ujian LIKE 'skor_awal'");
+        if (!$checkSkorAwal || $checkSkorAwal->num_rows === 0) {
+            $conn->query("ALTER TABLE hasil_ujian ADD COLUMN skor_awal INT DEFAULT NULL AFTER total_skor");
+        }
+        
+        $checkCols = $conn->query("SHOW COLUMNS FROM hasil_ujian LIKE 'detail_jawaban'");
+        if ($checkCols && $checkCols->num_rows > 0) {
+            $stmt = $conn->prepare("INSERT INTO hasil_ujian (id_ujian, nis, nama, kelas, total_skor, skor_awal, detail_jawaban) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("isssiis", $id_ujian, $nis, $nama, $kelas, $total_skor, $skor_awal, $detail_jawaban_json);
+        } else {
+            $stmt = $conn->prepare("INSERT INTO hasil_ujian (id_ujian, nis, nama, kelas, total_skor, skor_awal) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("isssii", $id_ujian, $nis, $nama, $kelas, $total_skor, $skor_awal);
+        }
+        
+        if ($stmt->execute()) {
+            $insert_id = $stmt->insert_id;
+            
+            $conn->query("DELETE FROM jawaban_sementara WHERE id_ujian = $id_ujian AND nis = '$nis'");
+            
+            // Commit transaction
+            $conn->commit();
+            
+            $response['success'] = true;
+            $response['message'] = 'Jawaban berhasil disubmit';
+            $response['skor'] = $total_skor;
+            $response['skor_awal'] = $skor_awal; // Original score before penalty
+            $response['penalty'] = $penalty;
+            $response['violation_count'] = $violation_count;
+            $response['total_soal'] = count($soal_list);
+            $response['jawaban_benar'] = count(array_filter($detail_jawaban, fn($d) => $d['is_correct']));
+        } else {
+            $conn->rollback();
+            throw new Exception('Gagal menyimpan jawaban: ' . $stmt->error);
+        }
+        $stmt->close();
+        
+    } catch (Exception $e) {
+        // Rollback if transaction is still active
+        try { $conn->rollback(); } catch (Exception $ignored) {}
+        throw $e;
+    } finally {
+        // Release advisory lock
+        $conn->query("DO RELEASE_LOCK('$lockName')");
     }
-    $stmt->close();
     
     return $response;
 }
