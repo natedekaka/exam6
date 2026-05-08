@@ -15,8 +15,19 @@ services:
     command: >
       bash -c "docker-php-ext-install mysqli pdo pdo_mysql &&
              a2enmod rewrite &&
+             echo 'memory_limit = 256M' > /usr/local/etc/php/conf.d/memory.ini &&
+             echo 'max_execution_time = 120' > /usr/local/etc/php/conf.d/timeout.ini &&
+             echo 'max_input_time = 120' >> /usr/local/etc/php/conf.d/timeout.ini &&
              chmod -R 777 /var/www/html/uploads &&
              apache2-foreground"
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '2'
+          memory: 2G
 
   db:
     image: docker.io/library/mysql:8.0
@@ -36,6 +47,14 @@ services:
     networks:
       - exam6-net
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '2'
+          memory: 2G
 
   phpmyadmin:
     image: docker.io/library/phpmyadmin:latest
