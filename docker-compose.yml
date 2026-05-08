@@ -21,6 +21,7 @@ services:
   db:
     image: docker.io/library/mysql:8.0
     container_name: exam6-db
+    command: --max_connections=500 --innodb_buffer_pool_size=2G --wait_timeout=180 --interactive_timeout=180
     environment:
       MYSQL_ROOT_PASSWORD: rootpass
       MYSQL_DATABASE: ujian_online
