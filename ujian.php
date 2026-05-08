@@ -1515,13 +1515,17 @@ function initExamFeatures() {
                 console.log('Verify response:', data);
                 
                 if (data.valid === true) {
+                    // Show dual monitor warning first before showing exam content
                     document.getElementById('examCodeForm').style.display = 'none';
-                    document.getElementById('examContent').style.display = 'block';
-                    document.getElementById('identitySection').style.display = 'block';
-                    document.getElementById('questionSection').style.display = 'none';
+                    
+                    // Show warning modal with callback to display exam content
+                    showDualMonitorWarning(function() {
+                        document.getElementById('examContent').style.display = 'block';
+                        document.getElementById('identitySection').style.display = 'block';
+                        document.getElementById('questionSection').style.display = 'none';
+                    });
                 } else {
                     alert(data.message || 'Kode ujian salah!');
-
 
                 }
             } catch (e) {
@@ -2553,6 +2557,69 @@ function initExamFeatures() {
         <?php endif; ?>
         
         init();
+        
+        // Custom modal for dual monitor warning at exam start
+        function showDualMonitorWarning(callback) {
+            const modal = document.createElement('div');
+            modal.id = 'dualMonitorWarningModal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:99999;';
+            modal.innerHTML = `
+                <div style="background:white;padding:30px;border-radius:16px;max-width:500px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <div style="width:80px;height:80px;margin:0 auto 20px;background:linear-gradient(135deg,#dc2626,#ef4444);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-monitor" style="font-size:2.5rem;color:white;"></i>
+                    </div>
+                    <h4 style="font-weight:600;margin-bottom:15px;">PERHATIAN: Aturan Ujian</h4>
+                    <p style="color:#6b7280;margin-bottom:20px;text-align:left;">
+                        <strong>Dilarang Keras</strong> Melakukan Pelanggaran Dalam Ujian.<br><br>
+                        Jika Melakukan Pelanggaran akan ada <strong>pemotongan Nilai</strong> Bahkan sampai <strong>pembatalan Nilai</strong>.
+                    </p>
+                    <div style="background:#fef2f2;border:1px solid #fecaca;padding:15px;border-radius:8px;margin-bottom:20px;">
+                        <p style="color:#dc2626;font-size:0.9rem;margin:0;">
+                            <i class="bi bi-exclamation-triangle-fill"></i> 
+                            <strong>Peringatan:</strong> Sistem akan memantau dan mencatat seluruh pelanggaran selama ujian berlangsung.
+                        </p>
+                    </div>
+                    <button id="dualMonitorBtn"
+                            style="background:linear-gradient(135deg,#dc2626,#ef4444);color:white;border:none;padding:12px 30px;border-radius:30px;font-weight:600;cursor:pointer;">
+                        <i class="bi bi-check-lg me-2"></i>Saya Mengerti, Akan Patuh
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            // Add click handler via addEventListener (can access callback)
+            const btn = document.getElementById('dualMonitorBtn');
+            btn.addEventListener('click', function() {
+                modal.remove();
+                if (typeof callback === 'function') {
+                    callback();
+                }
+            });
+            
+            // Close on background click (but force user to click button)
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    // Don't close, show reminder with shake animation
+                    const btnEl = document.getElementById('dualMonitorBtn');
+                    btnEl.style.animation = 'shake 0.5s';
+                    setTimeout(() => { btnEl.style.animation = ''; }, 500);
+                }
+            });
+            
+            // Add shake animation if not exists
+            if (!document.getElementById('shakeAnimation')) {
+                const style = document.createElement('style');
+                style.id = 'shakeAnimation';
+                style.textContent = `
+                    @keyframes shake {
+                        0%, 100% { transform: translateX(0); }
+                        10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+                        20%, 40%, 60%, 80% { transform: translateX(5px); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
         
         // Custom modal for incomplete answers (prevents fullscreen exit)
         function showIncompleteModal(answered, total) {
