@@ -295,6 +295,16 @@ Login admin: http://localhost/exam6/admin/login.php → `admin` / `admin123`
 
 Buat yang lebih suka terminal:
 
+#### Via Podman (langsung ke container MySQL — paling cepat)
+```bash
+# Import database langsung ke container (beberapa detik, tidak lewat browser)
+podman exec -i exam6-db mysql -uroot -prootpass ujian_online < backup_db/ujian_online.sql
+```
+
+> ⚠️ Kalau error `Warning` di baris pertama SQL, buka file `backup_db/ujian_online.sql` dan hapus baris pertama yang diawali `mysqldump: [Warning]`.
+
+#### Via XAMPP / MySQL langsung
+
 **Langkah 1: Masuk ke MySQL**
 ```bash
 # XAMPP (Windows)
@@ -315,7 +325,7 @@ EXIT;
 
 **Atau satu baris:**
 ```bash
-# Windows (XAMPP):
+# XAMPP (Windows):
 "C:\xampp\mysql\bin\mysql.exe" -u root ujian_online < "C:\xampp\htdocs\exam6\backup_db\ujian_online.sql"
 
 # Linux/Mac:
