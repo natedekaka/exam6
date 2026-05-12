@@ -188,26 +188,42 @@ function handleCheckCompletion($conn, $input) {
     
     if ($result->num_rows > 0) {
         $row = $result->fetch_assoc();
-        $response['completed'] = true;
-        $response['message'] = 'Anda sudah mengerjakan ujian ini';
-        $response['result'] = [
-            'skor' => $row['total_skor'],
-            'tanggal' => $row['created_at']
-        ];
         
-        // Check if student can retake (has saved answers in jawaban_sementara)
-        $tableExists = $conn->query("SHOW TABLES LIKE 'jawaban_sementara'");
-        if ($tableExists && $tableExists->num_rows > 0) {
-            $stmt2 = $conn->prepare("SELECT answers, nama, kelas FROM jawaban_sementara WHERE id_ujian = ? AND nis = ? LIMIT 1");
-            $stmt2->bind_param("is", $id_ujian, $nis);
-            $stmt2->execute();
-            $result2 = $stmt2->get_result();
+        // Cek apakah siswa memiliki izin remedial
+        $hasRemedi = false;
+        $stmtRemedi = $conn->prepare("SELECT id FROM izin_remedi WHERE id_ujian = ? AND nis = ? LIMIT 1");
+        $stmtRemedi->bind_param("is", $id_ujian, $nis);
+        $stmtRemedi->execute();
+        $resultRemedi = $stmtRemedi->get_result();
+        $hasRemedi = $resultRemedi->num_rows > 0;
+        $stmtRemedi->close();
+        
+        if ($hasRemedi) {
+            // Siswa remedial: jangan set completed=true, biarkan masuk ujian
+            $response['completed'] = false;
+            $response['message'] = 'Anda memiliki izin remedial. Silakan kerjakan ulang.';
+        } else {
+            $response['completed'] = true;
+            $response['message'] = 'Anda sudah mengerjakan ujian ini';
+            $response['result'] = [
+                'skor' => $row['total_skor'],
+                'tanggal' => $row['created_at']
+            ];
             
-            if ($row2 = $result2->fetch_assoc()) {
-                $response['can_retake'] = true;
-                $response['message'] = 'Anda dapat mengerjakan ulang dengan jawaban tersimpan';
+            // Check if student can retake (has saved answers in jawaban_sementara)
+            $tableExists = $conn->query("SHOW TABLES LIKE 'jawaban_sementara'");
+            if ($tableExists && $tableExists->num_rows > 0) {
+                $stmt2 = $conn->prepare("SELECT answers, nama, kelas FROM jawaban_sementara WHERE id_ujian = ? AND nis = ? LIMIT 1");
+                $stmt2->bind_param("is", $id_ujian, $nis);
+                $stmt2->execute();
+                $result2 = $stmt2->get_result();
+                
+                if ($row2 = $result2->fetch_assoc()) {
+                    $response['can_retake'] = true;
+                    $response['message'] = 'Anda dapat mengerjakan ulang dengan jawaban tersimpan';
+                }
+                $stmt2->close();
             }
-            $stmt2->close();
         }
     }
     $stmt->close();
@@ -343,9 +359,25 @@ function handleSubmitFinal($conn, $input) {
         $checkStmt->execute();
         $checkResult = $checkStmt->get_result();
         if ($checkResult->num_rows > 0) {
-            $checkStmt->close();
-            $conn->rollback();
-            throw new Exception('Anda sudah menyelesaikan ujian ini. Tidak dapat mengubah jawaban.');
+            // Cek apakah siswa memiliki izin remedial
+            $stmtRemedi = $conn->prepare("SELECT id FROM izin_remedi WHERE id_ujian = ? AND nis = ? LIMIT 1");
+            $stmtRemedi->bind_param("is", $id_ujian, $nis);
+            $stmtRemedi->execute();
+            $resultRemedi = $stmtRemedi->get_result();
+            $hasRemedi = $resultRemedi->num_rows > 0;
+            $stmtRemedi->close();
+            
+            if ($hasRemedi) {
+                // Hapus hasil lama agar bisa diganti dengan yang baru
+                $deleteStmt = $conn->prepare("DELETE FROM hasil_ujian WHERE id_ujian = ? AND nis = ?");
+                $deleteStmt->bind_param("is", $id_ujian, $nis);
+                $deleteStmt->execute();
+                $deleteStmt->close();
+            } else {
+                $checkStmt->close();
+                $conn->rollback();
+                throw new Exception('Anda sudah menyelesaikan ujian ini. Tidak dapat mengubah jawaban.');
+            }
         }
         $checkStmt->close();
         

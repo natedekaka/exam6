@@ -1670,23 +1670,6 @@ function initExamFeatures() {
                 lastActivity = Date.now();
             });
             
-            window.addEventListener('blur', function() {
-                // Skip if exam finished
-                if (examFinished) return;
-                
-                violationCount++;
-                logViolation('window_blur', 'Siswa keluar dari window/aplikasi');
-                
-                if (violationCount >= maxViolations) {
-                    alert('Anda terlalu banyak seringkali keluar. Jawaban disubmit!');
-                    submitFinal();
-                } else {
-                    const remaining = maxViolations - violationCount;
-                    alert(`Peringatan: Ketidakaktifan terdeteksi!\nPelanggaran: ${violationCount}/${maxViolations}`);
-                }
-                lastActivity = Date.now();
-            });
-            
             window.addEventListener('focus', function() {
                 if (examFinished) return;
                 lastActivity = Date.now();
