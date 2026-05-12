@@ -165,154 +165,177 @@ exam6/
 
 ## Cara Install
 
-### Cara 1: Docker (Recommended)
+### ⭐ Cara Termudah: Docker (Rekomendasi)
 
-Docker adalah cara termudah untuk menjalankan aplikasi ini tanpa konfigurasi manual.
+Tidak perlu install PHP, MySQL, atau Apache. Cukup jalankan 3 perintah.
 
-#### Langkah-langkah:
+#### Yang Perlu Disiapkan
 
-1. **Pastikan Docker terinstall**
-   ```bash
-   docker --version
-   docker compose version  # atau docker-compose --version
-   ```
-   Jika belum install: [Docker Installation Guide](https://docs.docker.com/get-docker/)
+| Tools | Download |
+|-------|----------|
+| **Docker Desktop** | https://docs.docker.com/get-docker/ |
+| **Git** (opsional) | https://git-scm.com/downloads |
 
-2. **Clone repository:**
-   ```bash
-   git clone https://github.com/natedekaka/exam6.git
-   cd exam6
-   ```
+#### Langkah 1: Clone atau Download
 
-3. **Jalankan Docker containers:**
-   ```bash
-   docker compose up -d
-   # atau untuk Docker Compose lama:
-   docker-compose up -d
-   ```
-   
-   **Containers yang berjalan:**
-   | Container | Image | Port | Deskripsi |
-   |-----------|-------|------|-----------|
-   | `exam6-app` | php:8.2-apache | 8024 | PHP Apache web server |
-   | `exam6-db` | mysql:8.0 | 3313 | MySQL database |
-   | `exam6-pma` | phpmyadmin:latest | 8025 | phpMyAdmin interface |
+```bash
+git clone https://github.com/natedekaka/exam6.git
+cd exam6
+```
 
-4. **Setup Database (Otomatis):**
-   - Database `ujian_online` sudah otomatis dibuat saat container `db` pertama kali jalan
-   - File SQL di folder `migrations/` otomatis dijalankan saat inisialisasi
-   - Tabel dan struktur terbaru akan dibuat otomatis saat aplikasi diakses pertama kali
-   
-   **Atau import database lengkap via phpMyAdmin:**
-   ```bash
-   # Buka di browser:
-   http://localhost:8025
-   
-   # Kredensial:
-   # Server: db
-   # Username: root
-   # Password: rootpass
-   # Database: ujian_online
-   ```
-   
-   Lalu import file: `backup_db/ujian_online.sql` (Sudah termasuk struktur terbaru)
+Atau download ZIP dari https://github.com/natedekaka/exam6, ekstrak, lalu buka terminal di folder `exam6`.
 
-5. **Set permission folder uploads:**
-   ```bash
-   # Container otomatis set permission 777 saat start (sudah diatur di docker-compose.yml)
-   # Jika manual:
-   chmod -R 777 uploads/
-   ```
+#### Langkah 2: Jalankan Aplikasi
 
-6. **Akses aplikasi:**
-   - **Aplikasi**: http://localhost:8024
-   - **phpMyAdmin**: http://localhost:8025
+```bash
+docker compose up -d
+```
 
-7. **Login Admin Default:**
-   | Username | Password |
-   |----------|----------|
-   | `admin` | `admin123` |
-   
-   > ⚠️ **Penting**: Ganti password default setelah login pertama kali!
+Tunggu 1-2 menit sampai semua container siap.
+
+#### Langkah 3: Setup Database (OTOMATIS)
+
+✅ **Tidak perlu buat database manual!** Cukup import lewat phpMyAdmin:
+
+1. Buka http://localhost:8025
+2. Login phpMyAdmin:
+   - **Server**: `db`
+   - **Username**: `root`  
+   - **Password**: `rootpass`
+3. Di panel kiri, klik **`ujian_online`**
+4. Klik tab **"Import"** di menu atas
+5. Klik **"Choose File"**, pilih file `backup_db/ujian_online.sql`
+6. Scroll ke bawah, klik **"Go"**
+7. ✅ Selesai! Semua tabel terbuat otomatis.
+
+> 🔥 **Sudah termasuk data contoh**: admin, ujian, soal, dan siswa bisa langsung dipakai.
+
+#### Langkah 4: Akses Aplikasi
+
+| Halaman | URL | Login |
+|---------|-----|-------|
+| **Aplikasi Utama** | http://localhost:8024 | - |
+| **Admin Panel** | http://localhost:8024/admin/login.php | `admin` / `admin123` |
+| **phpMyAdmin** | http://localhost:8025 | root / rootpass |
+
+#### Langkah 5: Ganti Password Admin
+
+Login admin → klik **Manajemen User** → ganti password `admin123`.
 
 ---
 
-### Cara 2: Manual (XAMPP/LAMPP/WAMP)
+### ⚙️ Cara Manual (XAMPP / LAMP / Laragon)
 
-Untuk production server atau development tanpa Docker.
+Untuk yang sudah punya web server sendiri.
 
-#### Langkah-langkah:
+#### Langkah 1: Letakkan File
 
-1. **Clone/download ke folder web server:**
-   ```bash
-   git clone https://github.com/natedekaka/exam6.git
-   # atau download ZIP dan ekstrak ke:
-   # XAMPP: C:\xampp\htdocs\exam6
-   # LAMPP: /var/www/html/exam6
-   ```
+| OS | Folder |
+|----|--------|
+| **Windows (XAMPP)** | `C:\xampp\htdocs\exam6` |
+| **Windows (Laragon)** | `C:\laragon\www\exam6` |
+| **Linux (LAMP)** | `/var/www/html/exam6` |
 
-2. **Buat database MySQL:**
-   ```sql
-   CREATE DATABASE ujian_online CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-   ```
+Bisa dengan git clone atau download ZIP dan ekstrak ke folder di atas.
 
-3. **Import database:**
-   - Buka phpMyAdmin atau MySQL client
-   - Pilih database `ujian_online`
-   - Import file: `backup_db/ujian_online.sql`
-   
-   **Atau via command line:**
-   ```bash
-   mysql -u root -p ujian_online < backup_db/ujian_online.sql
-   ```
+#### Langkah 2: Setup Database (via phpMyAdmin)
 
-4. **Konfigurasi database di `config/database.php`:**
-   ```php
-   // config/database.php
-   $host = 'localhost';     // atau '127.0.0.1'
-   $user = 'root';          // user MySQL Anda
-   $password = '';          // password MySQL Anda (kosongkan jika XAMPP default)
-   $database = 'ujian_online';
-   $port = '3306';          // port MySQL (default 3306)
-   ```
-   
-   **Atau gunakan environment variables:**
-   ```bash
-   export DB_HOST=localhost
-   export DB_USER=root
-   export DB_PASS=''
-   export DB_NAME=ujian_online
-   export DB_PORT=3306
-   ```
+1. **Buka** http://localhost/phpmyadmin
+2. Klik tab **"Databases"** di menu atas
+3. **Buat database baru**:
+   - Nama: `ujian_online`
+   - Collation: `utf8mb4_general_ci`
+   - Klik **"Create"**
+4. **Klik database** `ujian_online` di panel kiri
+5. Klik tab **"Import"** di menu atas
+6. Klik **"Choose File"** → pilih file `backup_db/ujian_online.sql`
+7. Scroll ke bawah, klik **"Go"**
+8. ✅ Database siap!
 
-5. **Set permission folder uploads:**
-   ```bash
-   chmod -R 777 /path/to/exam6/uploads/
-   # Windows: set folder uploads agar bisa ditulis
-   ```
+> ⚠️ **Error "database exists"?** Lewati langkah 3, langsung klik database `ujian_online` di panel kiri.
 
-6. **Akses aplikasi:**
-   - XAMPP: http://localhost/exam6
-   - LAMPP: http://localhost/exam6
-   - Custom: http://your-domain.com/exam6
+#### Langkah 3: Konfigurasi Koneksi Database
+
+Buka file `config/database.php`, sesuaikan bagian ini:
+
+```php
+// XAMPP default (tinggal copas):
+$host = 'localhost';
+$user = 'root';
+$password = '';           // XAMPP: kosong
+$database = 'ujian_online';
+$port = '3306';
+```
+
+| Software | Username | Password |
+|----------|----------|----------|
+| **XAMPP** | `root` | `(kosong)` |
+| **Laragon** | `root` | `(kosong)` |
+| **LAMP Ubuntu** | `root` | `(password MySQL Anda)` |
+| **MAMP** | `root` | `root` |
+
+#### Langkah 4: Permission Folder
+
+**Linux/Mac:**
+```bash
+chmod -R 777 exam6/uploads/
+```
+
+**Windows:** Tidak perlu setting apa-apa.
+
+#### Langkah 5: Akses Aplikasi
+
+Buka browser: **http://localhost/exam6**
+
+Login admin: http://localhost/exam6/admin/login.php → `admin` / `admin123`
 
 ---
 
-### Verifikasi Instalasi
+### 🔧 Setup Database via Command Line (Alternatif)
 
-1. Buka http://localhost:8024 (Docker) atau http://localhost/exam6 (Manual)
-2. Login admin: `admin` / `admin123`
-3. **Buat ujian baru** di menu "Manajemen Ujian":
-   - Isi judul, deskripsi, durasi
-   - Atur pengaturan keamanan (kode rahasia, dll)
-4. **Tambah soal** di menu "Bank Soal":
-   - Klik tombol "Tambah Soal"
-   - Isi soal, pilihan jawaban, dan kunci
-   - Bisa tambah gambar soal
-5. **Import soal massal** via CSV (menu "Import Massal"):
-   - Download template terlebih dahulu
-   - Isi sesuai format, lalu upload
-6. **Siswa bisa akses ujian** dari landing page (http://localhost:8024)
+Buat yang lebih suka terminal:
+
+**Langkah 1: Masuk ke MySQL**
+```bash
+# XAMPP (Windows)
+"C:\xampp\mysql\bin\mysql.exe" -u root
+
+# Linux/Mac
+mysql -u root -p
+```
+
+**Langkah 2: Buat database dan import**
+```sql
+-- Jalankan perintah ini satu per satu di MySQL:
+CREATE DATABASE IF NOT EXISTS ujian_online CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+USE ujian_online;
+SOURCE lokasi_folder_exam6/backup_db/ujian_online.sql;
+EXIT;
+```
+
+**Atau satu baris:**
+```bash
+# Windows (XAMPP):
+"C:\xampp\mysql\bin\mysql.exe" -u root ujian_online < "C:\xampp\htdocs\exam6\backup_db\ujian_online.sql"
+
+# Linux/Mac:
+mysql -u root -p ujian_online < /var/www/html/exam6/backup_db/ujian_online.sql
+```
+
+---
+
+### ✅ Verifikasi Instalasi
+
+Setelah semua langkah di atas:
+
+1. **Buka** http://localhost:8024 (Docker) atau http://localhost/exam6 (Manual)
+2. **Login admin**: http://localhost:8024/admin/login.php — `admin` / `admin123`
+3. Di dashboard, klik **"Manajemen Ujian"** — seharusnya sudah ada ujian contoh
+4. Klik **"Soal"** pada salah satu ujian — seharusnya sudah ada soal
+5. Buka tab baru, buka http://localhost:8024 — lihat daftar ujian yang tersedia
+6. Klik **"Mulai Ujian"** pada salah satu ujian, isi identitas contoh, dan coba kerjakan
+
+> ❓ **Udah login tapi error?** Cek kembali langkah import database. Pastikan file `backup_db/ujian_online.sql` sudah diimport dengan benar.
 
 ---
 
@@ -552,26 +575,34 @@ Device Fingerprint: Aktif
 ## Troubleshooting
 
 ### 1. Error: "Koneksi database gagal"
-- Pastikan MySQL/MariaDB sudah berjalan
-- Cek konfigurasi di `config/database.php`
-- Untuk Docker: pastikan container `exam6-db` sudah running (`docker ps`)
+- **Penyebab paling umum**: Database belum dibuat atau file SQL belum diimport
+- Cek konfigurasi di `config/database.php`:
+  ```php
+  // XAMPP: password kosong, host localhost
+  // Docker: host = db, password = rootpass
+  ```
+- Untuk Docker: pastikan container `exam6-db` sudah running (`podman ps` atau `docker ps`)
+- Coba akses phpMyAdmin untuk pastikan database `ujian_online` ada dan berisi tabel
 
-### 2. Gambar soal tidak muncul
-- Pastikan folder `uploads/` memiliki permission 777
+### 2. Error "Table 'ujian_online.ujian' doesn't exist" atau tabel tidak ditemukan
+- **Penyebab**: File `backup_db/ujian_online.sql` belum diimport
+- Solusi: Ikuti langkah import database di atas (bagian Setup Database)
+- Untuk Docker via phpMyAdmin: http://localhost:8025 → login → pilih `ujian_online` → Import
+- Untuk XAMPP via phpMyAdmin: http://localhost/phpmyadmin → Import
+
+### 3. Gambar soal tidak muncul
+- Pastikan folder `uploads/` memiliki permission 777 (Linux/Mac)
 - Cek apakah file gambar ada di folder `uploads/`
-- Pastikan web server bisa mengakses folder uploads
 
-### 3. Auto-save tidak berfungsi
+### 4. Auto-save tidak berfungsi
 - Pastikan JavaScript tidak diblokir browser
-- Cek console browser untuk error
-- Pastikan `api/submit_jawaban.php` bisa diakses
+- Cek console browser (F12) untuk error
 
-### 4. Siswa tidak bisa submit
-- Cek apakah ada pelanggaran browser lock
-- Cek ruang penyimpanan database
-- Lihat log error di `exam6-db` container
+### 5. Siswa tidak bisa submit
+- Cek apakah ada pelanggaran browser lock (terlalu sering tab switch)
+- Cek apakah siswa sudah pernah submit sebelumnya (butuh izin remedial dari admin)
 
-### 5. Docker container tidak bisa start
+### 6. Docker container tidak bisa start
 ```bash
 # Cek logs
 docker logs exam6-app
@@ -580,6 +611,14 @@ docker logs exam6-db
 # Restart containers
 docker compose down
 docker compose up -d
+```
+
+### 7. Database error setelah update
+```bash
+# Jalankan migration terbaru (jika ada file baru di migrations/)
+# Lewat phpMyAdmin: buka database ujian_online → SQL → paste isi file migration
+# Atau command line:
+mysql -u root -p ujian_online < migrations/08_increase_max_violations.sql
 ```
 
 ---
