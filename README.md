@@ -197,16 +197,25 @@ Tunggu 1-2 menit sampai semua container siap.
 
 ✅ **Tidak perlu buat database manual!** Cukup import lewat phpMyAdmin:
 
-1. Buka http://localhost:8025
-2. Login phpMyAdmin:
+> 💡 **Tips biar cepat:** File SQL bisa di-zip dulu sebelum import. phpMyAdmin bisa baca file `.zip` atau `.gz` langsung!
+
+1. **Compress file** (opsional — tapi bikin import jauh lebih cepat):
+   ```bash
+   gzip -k backup_db/ujian_online.sql
+   #   backup_db/ujian_online.sql.gz  (ukuran ~160KB dari ~2.8MB)
+   ```
+2. Buka http://localhost:8025
+3. Login phpMyAdmin:
    - **Server**: `db`
    - **Username**: `root`  
    - **Password**: `rootpass`
-3. Di panel kiri, klik **`ujian_online`**
-4. Klik tab **"Import"** di menu atas
-5. Klik **"Choose File"**, pilih file `backup_db/ujian_online.sql`
-6. Scroll ke bawah, klik **"Go"**
-7. ✅ Selesai! Semua tabel terbuat otomatis.
+4. Di panel kiri, klik **`ujian_online`**
+5. Klik tab **"Import"** di menu atas
+6. Klik **"Choose File"**, pilih file:
+   - **Biasa**: `backup_db/ujian_online.sql`
+   - **Lebih cepat**: `backup_db/ujian_online.sql.gz` (compress dulu)
+7. Scroll ke bawah, klik **"Go"**
+8. ✅ Selesai! Semua tabel terbuat otomatis.
 
 > 🔥 **Sudah termasuk data contoh**: admin, ujian, soal, dan siswa bisa langsung dipakai.
 
@@ -248,7 +257,9 @@ Bisa dengan git clone atau download ZIP dan ekstrak ke folder di atas.
    - Klik **"Create"**
 4. **Klik database** `ujian_online` di panel kiri
 5. Klik tab **"Import"** di menu atas
-6. Klik **"Choose File"** → pilih file `backup_db/ujian_online.sql`
+6. Klik **"Choose File"** → pilih file:
+   - **Biasa**: `backup_db/ujian_online.sql`
+   - **Lebih cepat**: `backup_db/ujian_online.sql.gz` (compress dulu: `gzip -k backup_db/ujian_online.sql`)
 7. Scroll ke bawah, klik **"Go"**
 8. ✅ Database siap!
 
