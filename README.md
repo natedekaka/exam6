@@ -116,8 +116,8 @@ Aplikasi ujian online berbasis PHP dan MySQL untuk sekolah dengan fitur keamanan
 
 - **PHP 8.0+** (direkomendasikan 8.2)
 - **MySQL 8.0+** atau MariaDB 10.4+
-- **Web Server**: Apache/Nginx (atau gunakan Docker)
-- **Docker** (opsional, direkomendasikan untuk development)
+- **Web Server**: Apache/Nginx (atau gunakan Podman)
+- **Podman** (opsional, direkomendasikan untuk development)
 
 ---
 
@@ -157,7 +157,7 @@ exam6/
 ├── ujian.php                   # Halaman ujian siswa
 ├── review.php                  # Review jawaban setelah submit
 ├── riwayat.php                 # Riwayat nilai siswa
-├── docker-compose.yml          # Konfigurasi Docker/Podman
+├── docker-compose.yml          # Konfigurasi Podman
 └── README.md                   # Dokumentasi ini
 ```
 
@@ -165,7 +165,7 @@ exam6/
 
 ## Cara Install
 
-### ⭐ Cara Termudah: Docker (Rekomendasi)
+### ⭐ Cara Termudah: Podman (Rekomendasi)
 
 Tidak perlu install PHP, MySQL, atau Apache. Cukup jalankan 3 perintah.
 
@@ -173,7 +173,7 @@ Tidak perlu install PHP, MySQL, atau Apache. Cukup jalankan 3 perintah.
 
 | Tools | Download |
 |-------|----------|
-| **Docker Desktop** | https://docs.docker.com/get-docker/ |
+| **Podman** | https://podman.io/getting-started/installation |
 | **Git** (opsional) | https://git-scm.com/downloads |
 
 #### Langkah 1: Clone atau Download
@@ -188,7 +188,7 @@ Atau download ZIP dari https://github.com/natedekaka/exam6, ekstrak, lalu buka t
 #### Langkah 2: Jalankan Aplikasi
 
 ```bash
-docker compose up -d
+podman compose up -d
 ```
 
 Tunggu 1-2 menit sampai semua container siap.
@@ -328,7 +328,7 @@ mysql -u root -p ujian_online < /var/www/html/exam6/backup_db/ujian_online.sql
 
 Setelah semua langkah di atas:
 
-1. **Buka** http://localhost:8024 (Docker) atau http://localhost/exam6 (Manual)
+1. **Buka** http://localhost:8024 (Podman) atau http://localhost/exam6 (Manual)
 2. **Login admin**: http://localhost:8024/admin/login.php — `admin` / `admin123`
 3. Di dashboard, klik **"Manajemen Ujian"** — seharusnya sudah ada ujian contoh
 4. Klik **"Soal"** pada salah satu ujian — seharusnya sudah ada soal
@@ -561,7 +561,7 @@ Device Fingerprint: Aktif
   - JSON untuk penyimpanan jawaban
   
 - **Container**: 
-  - Docker/Podman
+  - Podman
   - PHP 8.2 Apache image
   - MySQL 8.0 image
   - phpMyAdmin latest
@@ -579,15 +579,15 @@ Device Fingerprint: Aktif
 - Cek konfigurasi di `config/database.php`:
   ```php
   // XAMPP: password kosong, host localhost
-  // Docker: host = db, password = rootpass
+  // Podman: host = db, password = rootpass
   ```
-- Untuk Docker: pastikan container `exam6-db` sudah running (`podman ps` atau `docker ps`)
+- Untuk Podman: pastikan container `exam6-db` sudah running (`podman ps`)
 - Coba akses phpMyAdmin untuk pastikan database `ujian_online` ada dan berisi tabel
 
 ### 2. Error "Table 'ujian_online.ujian' doesn't exist" atau tabel tidak ditemukan
 - **Penyebab**: File `backup_db/ujian_online.sql` belum diimport
 - Solusi: Ikuti langkah import database di atas (bagian Setup Database)
-- Untuk Docker via phpMyAdmin: http://localhost:8025 → login → pilih `ujian_online` → Import
+- Untuk Podman via phpMyAdmin: http://localhost:8025 → login → pilih `ujian_online` → Import
 - Untuk XAMPP via phpMyAdmin: http://localhost/phpmyadmin → Import
 
 ### 3. Gambar soal tidak muncul
@@ -602,15 +602,15 @@ Device Fingerprint: Aktif
 - Cek apakah ada pelanggaran browser lock (terlalu sering tab switch)
 - Cek apakah siswa sudah pernah submit sebelumnya (butuh izin remedial dari admin)
 
-### 6. Docker container tidak bisa start
+### 6. Container tidak bisa start
 ```bash
 # Cek logs
-docker logs exam6-app
-docker logs exam6-db
+podman logs exam6-app
+podman logs exam6-db
 
 # Restart containers
-docker compose down
-docker compose up -d
+podman compose down
+podman compose up -d
 ```
 
 ### 7. Database error setelah update
