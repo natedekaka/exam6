@@ -1,38 +1,49 @@
 services:
   app:
-    image: docker.io/library/php:8.2-apache
+    build: .
     container_name: exam6-app
-    user: root
     ports:
-      - "8024:80"
+      - "8080:80"
     volumes:
       - .:/var/www/html:z
     depends_on:
       - db
+      - redis
     networks:
       - exam6-net
     restart: unless-stopped
-    command: >
-      bash -c "docker-php-ext-install mysqli pdo pdo_mysql &&
-             a2enmod rewrite &&
-             echo 'memory_limit = 256M' > /usr/local/etc/php/conf.d/memory.ini &&
-             echo 'max_execution_time = 120' > /usr/local/etc/php/conf.d/timeout.ini &&
-             echo 'max_input_time = 120' >> /usr/local/etc/php/conf.d/timeout.ini &&
-             chmod -R 777 /var/www/html/uploads &&
-             apache2-foreground"
-    deploy:
-      resources:
-        limits:
-          cpus: '4'
-          memory: 4G
-        reservations:
-          cpus: '2'
-          memory: 2G
+
+
+  redis:
+    image: docker.io/library/redis:7-alpine
+    container_name: exam6-redis
+    command: redis-server --appendonly no --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - exam6-net
+    restart: unless-stopped
+
 
   db:
     image: docker.io/library/mysql:8.0
     container_name: exam6-db
-    command: --max_connections=500 --innodb_buffer_pool_size=2G --wait_timeout=180 --interactive_timeout=180
+    command: >
+      --max_connections=500
+      --innodb_buffer_pool_size=4G
+      --innodb_log_file_size=1G
+      --innodb_flush_log_at_trx_commit=2
+      --wait_timeout=180
+      --interactive_timeout=180
+      --thread_cache_size=100
+      --tmp_table_size=256M
+      --max_heap_table_size=256M
+      --table_open_cache=4000
+      --sort_buffer_size=4M
+      --join_buffer_size=4M
     environment:
       MYSQL_ROOT_PASSWORD: rootpass
       MYSQL_DATABASE: ujian_online
@@ -47,20 +58,13 @@ services:
     networks:
       - exam6-net
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '4'
-          memory: 4G
-        reservations:
-          cpus: '2'
-          memory: 2G
+
 
   phpmyadmin:
     image: docker.io/library/phpmyadmin:latest
     container_name: exam6-pma
     ports:
-      - "8025:80"
+      - "8081:80"
     environment:
       PMA_HOST: db
       PMA_ARBITRARY: 1

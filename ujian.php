@@ -2490,7 +2490,7 @@ function initExamFeatures() {
             // Auto-save to server every 30 seconds
             if (identitySaved && waktuTersedia > 0) {
                 const now = Date.now();
-                if (now - lastAutoSaveTime >= 30000) { // 30 seconds
+                if (now - lastAutoSaveTime >= 60000) { // 60 seconds
                     lastAutoSaveTime = now;
                     // Collect all answers and save
                     const allAnswers = {};
