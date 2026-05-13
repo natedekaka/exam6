@@ -907,8 +907,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                 <div class="exam-card">
                     <h5><i class="bi bi-person-badge text-primary"></i> Identitas Siswa</h5>
                     <div class="mb-3">
-                        <label class="form-label">NIS <span class="text-danger">*</span></label>
-                        <input type="text" name="nis" id="nisInput" class="form-control" required placeholder="Masukkan NIS">
+                        <label class="form-label">NIS/Nomor Ujian <span class="text-danger">*</span></label>
+                        <input type="text" name="nis" id="nisInput" class="form-control" required placeholder="Masukkan NIS/Nomor Ujian">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Nama Lengkap <span class="text-danger">*</span></label>
@@ -1183,8 +1183,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             
             // Initialize in background without waiting
             setTimeout(initExamFeatures, 500);
+            
+            // Mobile overlay detection (IntersectionObserver)
+            setTimeout(initOverlayObserver, 1000);
+            
+            // Random presence challenge untuk deteksi overlay/automation
+            setTimeout(startPresenceChallenge, 3000);
+            
+            // Cegah HP sleep selama ujian
+            setTimeout(requestWakeLock, 2000);
         }
-         
+        
           function enterFullscreen() {
               const elem = document.documentElement;
               try {
@@ -1212,6 +1221,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
               }
           }
 
+          // === Screen Wake Lock API: cegah HP sleep selama ujian ===
+          let wakeLockObj = null;
+          
+          async function requestWakeLock() {
+              try {
+                  if ('wakeLock' in navigator) {
+                      wakeLockObj = await navigator.wakeLock.request('screen');
+                      wakeLockObj.addEventListener('release', () => {
+                          console.log('Wake Lock released');
+                      });
+                      console.log('Wake Lock active — screen will not sleep');
+                  } else {
+                      console.log('Wake Lock API not supported on this device');
+                  }
+              } catch (e) {
+                  console.warn('Wake Lock request failed:', e.name, e.message);
+              }
+          }
+          
+          function releaseWakeLock() {
+              if (wakeLockObj) {
+                  wakeLockObj.release();
+                  wakeLockObj = null;
+                  console.log('Wake Lock released manually');
+              }
+          }
+          
           function initFullscreenExitDetection() {
               wasFs = !!document.fullscreenElement || !!document.webkitFullscreenElement;
 
@@ -1581,7 +1617,42 @@ function initExamFeatures() {
             let idleTimer = null;
             let lastActivity = Date.now();
             const idleLimit = 60000;
-            let isFullscreen = !!document.fullscreenElement;
+            
+            // === Away State: menggabungkan sleep/blur/focus hilang jadi 1 pelanggaran ===
+            let awayState = { isAway: false, timer: null, lastViolationTime: 0 };
+            const AWAY_GRACE_PERIOD = 3000;  // grace 3 detik (mencegah false positive sleep)
+            const AWAY_COOLDOWN = 30000;     // min 30 detik antar pelanggaran away
+            
+            function handleAwayDetected() {
+                if (examFinished || isSubmittingExam) return;
+                if (awayState.isAway) return; // sudah dalam grace period
+                
+                const now = Date.now();
+                if (now - awayState.lastViolationTime < AWAY_COOLDOWN) return;
+                
+                awayState.isAway = true;
+                awayState.timer = setTimeout(() => {
+                    if (examFinished || isSubmittingExam) { awayState.isAway = false; return; }
+                    
+                    awayState.lastViolationTime = Date.now();
+                    violationCount++;
+                    logViolation('tab_switch', 'Siswa meninggalkan tab/layar ujian (sleep/overlay)');
+                    
+                    if (violationCount >= maxViolations) {
+                        alert('Anda terlalu sering meninggalkan ujian! Jawaban akan disubmit!');
+                        submitFinal();
+                    } else {
+                        const remaining = maxViolations - violationCount;
+                        alert('Peringatan: Anda meninggalkan layar ujian!\nPelanggaran: ' + violationCount + '/' + maxViolations + '\nSisa: ' + remaining + 'x');
+                    }
+                    awayState.isAway = false;
+                }, AWAY_GRACE_PERIOD);
+            }
+            
+            function handleAwayReturned() {
+                if (awayState.timer) { clearTimeout(awayState.timer); awayState.timer = null; }
+                awayState.isAway = false;
+            }
             
             // Detect fullscreen change
             document.addEventListener('fullscreenchange', function() {
@@ -1652,20 +1723,14 @@ function initExamFeatures() {
             setInterval(checkIdle, 10000);
             
             document.addEventListener('visibilitychange', function() {
-                // Skip if exam finished
                 if (examFinished) return;
                 
                 if (document.hidden) {
-                    violationCount++;
-                    logViolation('tab_switch', 'Siswa meninggalkan tab ujian');
-                    
-                    if (violationCount >= maxViolations) {
-                        alert('Anda terlalu banyak meninggalkan tab. Jawaban akan disubmit!');
-                        submitFinal();
-                    } else {
-                        const remaining = maxViolations - violationCount;
-                        alert(`Peringatan: Anda meninggalkan tab!\nPelanggaran: ${violationCount}/${maxViolations}\nSisa: ${remaining}x`);
-                    }
+                    // Pakai awayState dengan grace period 3 detik
+                    handleAwayDetected();
+                } else {
+                    // Kembali ke tab — batalkan grace period
+                    handleAwayReturned();
                 }
                 lastActivity = Date.now();
             });
@@ -1673,6 +1738,7 @@ function initExamFeatures() {
             window.addEventListener('focus', function() {
                 if (examFinished) return;
                 lastActivity = Date.now();
+                handleAwayReturned(); // Reset awayState ketika fokus kembali
             });
             
             window.addEventListener('orientationchange', function() {
@@ -1722,6 +1788,154 @@ function initExamFeatures() {
                 logViolation('paste', 'Siswa mencoba paste');
                 return false;
             });
+            
+            // === Mobile Overlay Detection (via awayState yang sama dengan visibilitychange) ===
+            // blur + polling rutin semuanya lewat handleAwayDetected() agar sleep/blur/visibility
+            // hanya dihitung SATU pelanggaran (bukan 3) dengan grace period 3 detik
+            window.addEventListener('blur', function() {
+                if (examFinished || isSubmittingExam) return;
+                // Tunggu 500ms, lalu cek apakah masih tidak punya fokus
+                setTimeout(() => {
+                    if (!document.hasFocus() && !examFinished && !isSubmittingExam) {
+                        handleAwayDetected();
+                    }
+                }, 500);
+            });
+            
+            // Periodic focus check — lewat awayState yang sama, cooldown 30 detik
+            setInterval(function() {
+                if (examFinished || isSubmittingExam) return;
+                if (!document.hasFocus()) {
+                    handleAwayDetected();
+                }
+            }, 4000);
+        }
+        
+        // === IntersectionObserver: Deteksi jika area soal tertutup overlay ===
+        let overlayObserver = null;
+        
+        function initOverlayObserver() {
+            const target = document.getElementById('soalContainer');
+            if (!target) return;
+            
+            if (overlayObserver) overlayObserver.disconnect();
+            
+            let lastOverlayTime = 0;
+            const OVERLAY_COOLDOWN = 15000;
+            
+            overlayObserver = new IntersectionObserver((entries) => {
+                if (examFinished || isSubmittingExam) return;
+                
+                entries.forEach(entry => {
+                    // Jika soal tertutup lebih dari 40% (intersectionRatio < 0.6)
+                    if (entry.intersectionRatio < 0.6) {
+                        const now = Date.now();
+                        if (now - lastOverlayTime < OVERLAY_COOLDOWN) return;
+                        lastOverlayTime = now;
+                        
+                        violationCount++;
+                        logViolation('soal_tertutup', 'Area soal tertutup overlay/ aplikasi lain (IntersectionObserver)');
+                        
+                        if (violationCount >= maxViolations) {
+                            alert('Area ujian tertutup berulang kali! Jawaban akan disubmit!');
+                            submitFinal();
+                        } else {
+                            const remaining = maxViolations - violationCount;
+                            alert('Peringatan: Area soal tertutup oleh aplikasi lain!\nPelanggaran: ' + violationCount + '/' + maxViolations + '\nSisa: ' + remaining + 'x');
+                        }
+                    }
+                });
+            }, { threshold: [0.6] });
+            
+            overlayObserver.observe(target);
+        }
+        
+        // === Random Presence Challenge untuk Mobile ===
+        let presenceTimer = null;
+        
+        function startPresenceChallenge() {
+            if (presenceTimer) clearTimeout(presenceTimer);
+            schedulePresenceChallenge();
+        }
+        
+        function schedulePresenceChallenge() {
+            if (examFinished) return;
+            // Interval acak antara 4-10 menit
+            const delay = (240 + Math.random() * 360) * 1000;
+            presenceTimer = setTimeout(showPresenceChallenge, delay);
+        }
+        
+        function showPresenceChallenge() {
+            if (examFinished || isSubmittingExam) return;
+            
+            const challengeId = 'presence_' + Date.now();
+            
+            const el = document.createElement('div');
+            el.id = challengeId;
+            el.style.cssText = 'position:fixed;bottom:20px;right:20px;background:white;border:2px solid #f59e0b;border-radius:12px;padding:15px 20px;box-shadow:0 8px 30px rgba(0,0,0,0.2);z-index:9999;max-width:280px;animation:fadeIn 0.3s ease-out;font-size:0.9rem;';
+            el.innerHTML = `
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <i class="bi bi-shield-exclamation" style="font-size:1.3rem;color:#f59e0b;"></i>
+                    <strong>Konfirmasi Kehadiran</strong>
+                </div>
+                <p style="color:#666;margin-bottom:10px;font-size:0.85rem;">Tap tombol di bawah untuk konfirmasi Anda masih mengerjakan ujian.</p>
+                <button onclick="confirmPresence('${challengeId}')" 
+                        style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;padding:8px 0;border-radius:8px;font-weight:600;cursor:pointer;width:100%;font-size:0.85rem;">
+                    <i class="bi bi-check-lg me-1"></i>Saya di sini
+                </button>
+                <div style="margin-top:6px;text-align:right;">
+                    <small id="countdown_${challengeId}" style="color:#999;font-size:0.75rem;">15 detik</small>
+                </div>
+            `;
+            document.body.appendChild(el);
+            
+            // Countdown
+            let countdown = 15;
+            const cdInterval = setInterval(() => {
+                countdown--;
+                const cdEl = document.getElementById('countdown_' + challengeId);
+                if (cdEl) {
+                    cdEl.textContent = countdown + ' detik';
+                    cdEl.style.color = countdown <= 5 ? '#dc2626' : '#999';
+                }
+                if (countdown <= 0) {
+                    clearInterval(cdInterval);
+                    const ov = document.getElementById(challengeId);
+                    if (ov && !examFinished) {
+                        ov.remove();
+                        violationCount++;
+                        logViolation('presence_timeout', 'Tidak merespon konfirmasi kehadiran');
+                        if (violationCount >= maxViolations) {
+                            alert('Terlalu banyak pelanggaran! Jawaban akan disubmit otomatis!');
+                            submitFinal();
+                        } else {
+                            const remaining = maxViolations - violationCount;
+                            alert('Peringatan: Tidak merespon konfirmasi kehadiran!\nPelanggaran: ' + violationCount + '/' + maxViolations + '\nSisa: ' + remaining + 'x');
+                        }
+                    }
+                    schedulePresenceChallenge();
+                }
+            }, 1000);
+            
+            // Hapus otomatis jika tidak direspon dalam 20 detik
+            setTimeout(() => {
+                const ov = document.getElementById(challengeId);
+                if (ov) ov.remove();
+            }, 20000);
+        }
+        
+        function confirmPresence(challengeId) {
+            const el = document.getElementById(challengeId);
+            if (el) el.remove();
+            schedulePresenceChallenge();
+        }
+        
+        // Tambah animasi fadeIn jika belum ada
+        if (!document.getElementById('fadeInAnimStyle')) {
+            const style = document.createElement('style');
+            style.id = 'fadeInAnimStyle';
+            style.textContent = '@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }';
+            document.head.appendChild(style);
         }
         
         async function logViolation(jenis, detail) {
@@ -1993,6 +2207,9 @@ function initExamFeatures() {
         }
         
         function doSubmitFinal() {
+            // Lepas Wake Lock agar HP bisa sleep normal setelah ujian
+            releaseWakeLock();
+            
             const nis = document.querySelector('input[name="nis"]').value.trim();
             const nama = document.querySelector('input[name="nama"]').value.trim();
             const kelas = document.querySelector('input[name="kelas"]').value.trim();
