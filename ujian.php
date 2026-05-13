@@ -1221,7 +1221,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
                   if (wasFs && !isFsNow && !isSubmittingExam) {
                       fsViolationCount++;
                       logViolation('exit_fullscreen', 'Siswa keluar dari mode fullscreen (force)');
-                      const maxViol = <?= (int)($ujian['max_violations'] ?? 3) ?>;
+                      const maxViol = <?= (int)($ujian['max_violations'] ?? 10) ?>;
                       
                       if (fsViolationCount >= maxViol) {
                           showFsModal('ANDA TERLALU SERING KELUAR DARI FULLSCREEN.<br>Jawaban akan disubmit!', true);
@@ -1577,7 +1577,7 @@ function initExamFeatures() {
             if (examFinished) return;
             
             let violationCount = 0;
-            const maxViolations = <?= (int)($ujian['max_violations'] ?? 3) ?>;
+            const maxViolations = <?= (int)($ujian['max_violations'] ?? 10) ?>;
             let idleTimer = null;
             let lastActivity = Date.now();
             const idleLimit = 60000;

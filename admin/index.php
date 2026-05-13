@@ -146,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_ujian'])) {
         $enable_browser_lock = $_POST['enable_browser_lock'];
     }
     
-    $max_violations = 3;
+    $max_violations = 10;
     if (isset($_POST['max_violations']) && (int)$_POST['max_violations'] > 0) {
         $max_violations = (int)$_POST['max_violations'];
     }
@@ -958,7 +958,7 @@ if (isset($_GET['edit'])) {
                         <div class="col-md-4 mb-3">
                             <label class="form-label fw-semibold">Max Pelanggaran</label>
                             <input type="number" name="max_violations" class="form-control" 
-                                   value="<?= $edit_ujian ? (int)($edit_ujian['max_violations'] ?? 3) : 3 ?>"
+                                   value="<?= $edit_ujian ? (int)($edit_ujian['max_violations'] ?? 10) : 10 ?>"
                                    min="1" max="10">
                         </div>
                         <?php endif; ?>
