@@ -274,7 +274,6 @@ foreach ($violation_data as $v) {
             color: white;
         }
         .sidebar-menu a i { margin-right: 10px; width: 20px; }
-        .main-content { flex: 1; padding: 25px; }
         .card { 
             border: none; 
             border-radius: 12px; 
