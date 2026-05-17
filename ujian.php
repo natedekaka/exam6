@@ -1441,6 +1441,9 @@ function initExamFeatures() {
             if (loadingIndicator) {
                 loadingIndicator.style.display = 'none';
             }
+            
+            // Scroll ke atas halaman setiap pindah soal
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
         
         function updateSoalNumbers() {
