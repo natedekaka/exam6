@@ -1190,7 +1190,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             // Random presence challenge untuk deteksi overlay/automation
             setTimeout(startPresenceChallenge, 3000);
             
-            // Cegah HP sleep selama ujian
+            // Minta Wake Lock agar HP tidak sleep (opsional, bukan pelanggaran jika sleep)
             setTimeout(requestWakeLock, 2000);
         }
         
@@ -1725,20 +1725,14 @@ function initExamFeatures() {
             document.addEventListener('visibilitychange', function() {
                 if (examFinished) return;
                 
-                if (document.hidden) {
-                    // Pakai awayState dengan grace period 3 detik
-                    handleAwayDetected();
-                } else {
-                    // Kembali ke tab — batalkan grace period
-                    handleAwayReturned();
-                }
+                // HP sleep / layar mati / tab switch bukan pelanggaran
+                // Tidak perlu proses violation, cukup catat aktivitas
                 lastActivity = Date.now();
             });
             
             window.addEventListener('focus', function() {
                 if (examFinished) return;
                 lastActivity = Date.now();
-                handleAwayReturned(); // Reset awayState ketika fokus kembali
             });
             
             window.addEventListener('orientationchange', function() {
@@ -1789,26 +1783,7 @@ function initExamFeatures() {
                 return false;
             });
             
-            // === Mobile Overlay Detection (via awayState yang sama dengan visibilitychange) ===
-            // blur + polling rutin semuanya lewat handleAwayDetected() agar sleep/blur/visibility
-            // hanya dihitung SATU pelanggaran (bukan 3) dengan grace period 3 detik
-            window.addEventListener('blur', function() {
-                if (examFinished || isSubmittingExam) return;
-                // Tunggu 500ms, lalu cek apakah masih tidak punya fokus
-                setTimeout(() => {
-                    if (!document.hasFocus() && !examFinished && !isSubmittingExam) {
-                        handleAwayDetected();
-                    }
-                }, 500);
-            });
-            
-            // Periodic focus check — lewat awayState yang sama, cooldown 30 detik
-            setInterval(function() {
-                if (examFinished || isSubmittingExam) return;
-                if (!document.hasFocus()) {
-                    handleAwayDetected();
-                }
-            }, 4000);
+            // Sleep / layar mati / kehilangan fokus bukan pelanggran — tidak perlu proses violation
             
             // === Multi-Monitor Detection ===
             // Cek tiap 10 detik apakah ada layar tambahan (screen.isExtended)
