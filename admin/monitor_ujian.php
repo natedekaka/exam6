@@ -245,7 +245,7 @@ foreach ($violation_data as $v) {
     <title>Monitor Ujian - <?= htmlspecialchars($sekolah['nama_sekolah']) ?></title>
     <link href="../vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../vendor/bootstrap-icons/bootstrap-icons.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="../vendor/fonts/poppins.css" rel="stylesheet">
     <style>
         * { font-family: 'Poppins', system-ui, -apple-system, sans-serif; }
         body { background: #f1f5f9; margin: 0; }

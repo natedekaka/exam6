@@ -49,7 +49,7 @@ $persentase = $total_soal > 0 ? round(($total_benar / $total_soal) * 100, 1) : 0
     <title>Detail Jawaban - <?= htmlspecialchars($hasil['nama']) ?> - <?= htmlspecialchars($sekolah['nama_sekolah']) ?></title>
     <link href="../vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../vendor/bootstrap-icons/bootstrap-icons.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="../vendor/fonts/poppins.css" rel="stylesheet">
     <style>
         * { font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         body { background: #f8f9fa; }

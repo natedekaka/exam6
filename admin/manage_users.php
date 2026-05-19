@@ -150,7 +150,7 @@ if (isset($_GET['refresh'])) {
     <title>Kelola Admin - Admin</title>
     <link href="../vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../vendor/bootstrap-icons/bootstrap-icons.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="../vendor/fonts/inter.css" rel="stylesheet">
     <style>
         :root {
             --primary: #4f46e5;

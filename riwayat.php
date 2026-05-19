@@ -61,7 +61,7 @@ $stmt->close();
     <title>Riwayat Nilai - <?= htmlspecialchars($siswa['nama'] ?? $nis) ?></title>
     <link href="vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="vendor/bootstrap-icons/bootstrap-icons.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <link href="vendor/fonts/poppins.css" rel="stylesheet">
     <style>
         * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Poppins', sans-serif; }
         
