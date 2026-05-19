@@ -1611,6 +1611,21 @@ function initExamFeatures() {
         let isSubmittingExam = false; // Flag to track intentional submission
         let examFinished = false; // Flag to indicate exam is completed
         
+        // === Toast notification (non-blocking, auto-dismiss) ===
+        function showToast(message, type) {
+            const bgColor = type === 'danger' ? '#dc3545' : type === 'warning' ? '#f59e0b' : '#333';
+            const textColor = type === 'warning' ? '#333' : 'white';
+            const toast = document.createElement('div');
+            toast.textContent = message;
+            toast.style.cssText = `position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:${bgColor};color:${textColor};padding:14px 28px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.3);z-index:2147483647;font-size:0.9rem;font-weight:500;max-width:90%;text-align:center;animation:slideUp 0.3s ease-out;pointer-events:none;`;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.transition = 'opacity 0.4s ease';
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        }
+        
         function initBrowserLock() {
             // Skip if exam already finished
             if (examFinished) return;
@@ -1758,10 +1773,28 @@ function initExamFeatures() {
                 lastActivity = Date.now();
             });
             
+            // === Right-click detection with grace period & notification ===
+            let lastRightClickTime = 0;
+            const RIGHT_CLICK_COOLDOWN = 30000; // 30 detik antar pelanggaran
+
             document.addEventListener('contextmenu', function(e) {
                 if (examFinished) return;
                 e.preventDefault();
+
+                const now = Date.now();
+                if (now - lastRightClickTime < RIGHT_CLICK_COOLDOWN) return;
+                lastRightClickTime = now;
+
+                violationCount++;
                 logViolation('right_click', 'Siswa mencoba klik kanan');
+
+                showToast('⚠️ Klik kanan terdeteksi! (-10 poin). Pelanggaran: ' + violationCount + '/' + maxViolations, 'warning');
+
+                if (violationCount >= maxViolations) {
+                    showToast('❌ Terlalu banyak pelanggaran! Jawaban akan disubmit!', 'danger');
+                    setTimeout(submitFinal, 2000);
+                }
+
                 return false;
             });
             
