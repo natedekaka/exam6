@@ -1738,14 +1738,25 @@ function initExamFeatures() {
                 lastActivity = now;
             }
             
-            setInterval(checkIdle, 10000);
+            let idleInterval = setInterval(checkIdle, 10000);
             
             document.addEventListener('visibilitychange', function() {
                 if (examFinished) return;
                 
-                // HP sleep / layar mati / tab switch bukan pelanggaran
-                // Tidak perlu proses violation, cukup catat aktivitas
-                lastActivity = Date.now();
+                if (document.hidden) {
+                    // HP sleep / layar mati: pause idle check agar tidak kena violation saat tidur
+                    if (idleInterval) {
+                        clearInterval(idleInterval);
+                        idleInterval = null;
+                    }
+                } else {
+                    // Kembali dari sleep: reset timer dan restart idle check
+                    lastActivity = Date.now();
+                    handleAwayReturned();
+                    if (!idleInterval) {
+                        idleInterval = setInterval(checkIdle, 10000);
+                    }
+                }
             });
             
             window.addEventListener('focus', function() {
