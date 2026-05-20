@@ -1254,6 +1254,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
               function handleFsChange() {
                   if (examFinished) return;
                   const isFsNow = !!(document.fullscreenElement || document.webkitFullscreenElement);
+                  // Jangan anggap pelanggaran jika HP sleep / layar mati
+                  if (document.hidden) { wasFs = isFsNow; return; }
                   if (wasFs && !isFsNow && !isSubmittingExam) {
                       fsViolationCount++;
                       logViolation('exit_fullscreen', 'Siswa keluar dari mode fullscreen (force)');
@@ -1680,6 +1682,9 @@ function initExamFeatures() {
                 const wasFullscreen = isFullscreen;
                 isFullscreen = !!document.fullscreenElement;
                 
+                // Skip jika HP sleep / layar mati (fullscreen otomatis exit)
+                if (document.hidden) return;
+                
                 // Skip violation if this is intentional (exam submission)
                 if (wasFullscreen && !isFullscreen && !isSubmittingExam) {
                     violationCount++;
@@ -1704,6 +1709,9 @@ function initExamFeatures() {
                 
                 const wasFullscreen = isFullscreen;
                 isFullscreen = !!document.webkitFullscreenElement;
+                
+                // Skip jika HP sleep / layar mati (fullscreen otomatis exit)
+                if (document.hidden) return;
                 
                 // Skip violation if this is intentional (exam submission)
                 if (wasFullscreen && !isFullscreen && !isSubmittingExam) {
