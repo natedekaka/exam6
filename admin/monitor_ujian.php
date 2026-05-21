@@ -518,8 +518,7 @@ foreach ($violation_data as $v) {
                                             'idle_too_long' => 'bg-info',
                                             'window_blur' => 'bg-secondary',
                                             'right_click' => 'bg-dark',
-                                            'copy_paste' => 'bg-primary',
-                                            'orientation_change' => 'bg-light text-dark'
+                                            'copy_paste' => 'bg-primary'
                                         ];
                                         $badge_class = $badge_map[$v['jenis_violation']] ?? 'bg-secondary';
                                     ?>

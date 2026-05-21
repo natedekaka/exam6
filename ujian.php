@@ -1187,9 +1187,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
             // Mobile overlay detection (IntersectionObserver)
             setTimeout(initOverlayObserver, 1000);
             
-            // Random presence challenge untuk deteksi overlay/automation
-            setTimeout(startPresenceChallenge, 3000);
-            
             // Minta Wake Lock agar HP tidak sleep (opsional, bukan pelanggaran jika sleep)
             setTimeout(requestWakeLock, 2000);
         }
@@ -1250,21 +1247,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ujian'])) {
           
           function initFullscreenExitDetection() {
               wasFs = !!document.fullscreenElement || !!document.webkitFullscreenElement;
+              let fsGraceTimer = null;
+              const FS_GRACE_PERIOD = 10000; // 10 detik grace period
 
               function handleFsChange() {
                   if (examFinished) return;
                   const isFsNow = !!(document.fullscreenElement || document.webkitFullscreenElement);
                   // Jangan anggap pelanggaran jika HP sleep / layar mati
                   if (document.hidden) { wasFs = isFsNow; return; }
+                  
                   if (wasFs && !isFsNow && !isSubmittingExam) {
-                      fsViolationCount++;
-                      logViolation('exit_fullscreen', 'Siswa keluar dari mode fullscreen (force)');
-                      const maxViol = <?= (int)($ujian['max_violations'] ?? 10) ?>;
-                      
-                      if (fsViolationCount >= maxViol) {
-                          showFsModal('ANDA TERLALU SERING KELUAR DARI FULLSCREEN.<br>Jawaban akan disubmit!', true);
-                      } else {
-                          showFsModal('PERINGATAN: Jangan keluar dari fullscreen!<br>Pelanggaran: ' + fsViolationCount + '/' + maxViol + '<br><small class="text-danger">Setiap pelanggaran akan mengurangi 10 poin dari nilai akhir!</small>', false);
+                      // Grace period: tunggu 10 detik sebelum catat pelanggaran
+                      if (fsGraceTimer) clearTimeout(fsGraceTimer);
+                      fsGraceTimer = setTimeout(() => {
+                          if (examFinished) return;
+                          fsViolationCount++;
+                          logViolation('exit_fullscreen', 'Siswa keluar dari mode fullscreen (force)');
+                          const maxViol = <?= (int)($ujian['max_violations'] ?? 10) ?>;
+                          
+                          if (fsViolationCount >= maxViol) {
+                              showFsModal('ANDA TERLALU SERING KELUAR DARI FULLSCREEN.<br>Jawaban akan disubmit!', true);
+                          } else {
+                              showFsModal('PERINGATAN: Jangan keluar dari fullscreen!<br>Pelanggaran: ' + fsViolationCount + '/' + maxViol + '<br><small class="text-danger">Setiap pelanggaran akan mengurangi 10 poin dari nilai akhir!</small>', false);
+                          }
+                      }, FS_GRACE_PERIOD);
+                  } else if (!wasFs && isFsNow) {
+                      // Kembali ke fullscreen dalam grace period — batal
+                      if (fsGraceTimer) {
+                          clearTimeout(fsGraceTimer);
+                          fsGraceTimer = null;
                       }
                   }
                   wasFs = isFsNow;
@@ -1636,7 +1647,7 @@ function initExamFeatures() {
             const maxViolations = <?= (int)($ujian['max_violations'] ?? 10) ?>;
             let idleTimer = null;
             let lastActivity = Date.now();
-            const idleLimit = 60000;
+            const idleLimit = 300000; // 5 menit (reduksi false positive)
             
             // === Away State: menggabungkan sleep/blur/focus hilang jadi 1 pelanggaran ===
             let awayState = { isAway: false, timer: null, lastViolationTime: 0 };
@@ -1674,19 +1685,18 @@ function initExamFeatures() {
                 awayState.isAway = false;
             }
             
-            // Detect fullscreen change
-            document.addEventListener('fullscreenchange', function() {
-                // Skip if exam finished
-                if (examFinished) return;
-                
-                const wasFullscreen = isFullscreen;
-                isFullscreen = !!document.fullscreenElement;
-                
-                // Skip jika HP sleep / layar mati (fullscreen otomatis exit)
+            // Grace period untuk fullscreen exit
+            let fsGraceTimer = null;
+            const FS_GRACE = 10000; // 10 detik grace period
+
+            function handleFullscreenExit() {
+                if (examFinished || isSubmittingExam) return;
                 if (document.hidden) return;
-                
-                // Skip violation if this is intentional (exam submission)
-                if (wasFullscreen && !isFullscreen && !isSubmittingExam) {
+
+                // Grace period: tunggu 10 detik sebelum catat
+                if (fsGraceTimer) clearTimeout(fsGraceTimer);
+                fsGraceTimer = setTimeout(() => {
+                    if (examFinished) return;
                     violationCount++;
                     logViolation('exit_fullscreen', 'Siswa keluar dari mode fullscreen');
                     
@@ -1696,36 +1706,41 @@ function initExamFeatures() {
                     } else {
                         const remaining = maxViolations - violationCount;
                         alert(`Peringatan: Anda keluar dari fullscreen!\nPelanggaran: ${violationCount}/${maxViolations}\nSisa: ${remaining}x`);
-                        // Re-enter fullscreen after warning
                         setTimeout(enterFullscreen, 1000);
                     }
+                }, FS_GRACE);
+            }
+
+            function handleFullscreenEnter() {
+                if (fsGraceTimer) {
+                    clearTimeout(fsGraceTimer);
+                    fsGraceTimer = null;
+                }
+            }
+
+            // Detect fullscreen change
+            document.addEventListener('fullscreenchange', function() {
+                if (examFinished) return;
+                const wasFullscreen = isFullscreen;
+                isFullscreen = !!document.fullscreenElement;
+                
+                if (wasFullscreen && !isFullscreen) {
+                    handleFullscreenExit();
+                } else if (!wasFullscreen && isFullscreen) {
+                    handleFullscreenEnter();
                 }
             });
             
             // Safari compatibility
             document.addEventListener('webkitfullscreenchange', function() {
-                // Skip if exam finished
                 if (examFinished) return;
-                
                 const wasFullscreen = isFullscreen;
                 isFullscreen = !!document.webkitFullscreenElement;
                 
-                // Skip jika HP sleep / layar mati (fullscreen otomatis exit)
-                if (document.hidden) return;
-                
-                // Skip violation if this is intentional (exam submission)
-                if (wasFullscreen && !isFullscreen && !isSubmittingExam) {
-                    violationCount++;
-                    logViolation('exit_fullscreen', 'Siswa keluar dari mode fullscreen (Safari)');
-                    
-                    if (violationCount >= maxViolations) {
-                        alert('Anda terlalu sering keluar dari fullscreen. Jawaban akan disubmit!');
-                        submitFinal();
-                    } else {
-                        const remaining = maxViolations - violationCount;
-                        alert(`Peringatan: Anda keluar dari fullscreen!\nPelanggaran: ${violationCount}/${maxViolations}\nSisa: ${remaining}x`);
-                        setTimeout(enterFullscreen, 1000);
-                    }
+                if (wasFullscreen && !isFullscreen) {
+                    handleFullscreenExit();
+                } else if (!wasFullscreen && isFullscreen) {
+                    handleFullscreenEnter();
                 }
             });
             
@@ -1772,11 +1787,6 @@ function initExamFeatures() {
                 lastActivity = Date.now();
             });
             
-            window.addEventListener('orientationchange', function() {
-                if (examFinished) return;
-                logViolation('orientation_change', 'HP dirotasi');
-            });
-            
             document.addEventListener('touchstart', function() {
                 if (examFinished) return;
                 lastActivity = Date.now();
@@ -1817,19 +1827,7 @@ function initExamFeatures() {
                 return false;
             });
             
-            document.addEventListener('copy', function(e) {
-                if (examFinished) return;
-                e.preventDefault();
-                logViolation('copy_paste', 'Siswa mencoba menyalin teks');
-                return false;
-            });
-            
-            document.addEventListener('cut', function(e) {
-                if (examFinished) return;
-                e.preventDefault();
-                logViolation('cut', 'Siswa mencoba memotong teks');
-                return false;
-            });
+            // Copy diizinkan (hanya paste yang diblokir)
             
             document.addEventListener('paste', function(e) {
                 if (examFinished) return;
@@ -1840,45 +1838,6 @@ function initExamFeatures() {
             
             // Sleep / layar mati / kehilangan fokus bukan pelanggran — tidak perlu proses violation
             
-            // === Multi-Monitor Detection ===
-            // Cek tiap 10 detik apakah ada layar tambahan (screen.isExtended)
-            let lastMultiMonitorCheck = 0;
-            setInterval(function() {
-                if (examFinished || isSubmittingExam) return;
-                
-                const now = Date.now();
-                if (now - lastMultiMonitorCheck < 30000) return; // cek max 30 detik
-                
-                let detected = false;
-                
-                // API resmi: Multi-Screen Window Placement
-                if (window.screen && window.screen.isExtended) {
-                    detected = true;
-                }
-                // Heuristic: window lebih lebar dari layar
-                if (window.outerWidth > screen.availWidth + 50) {
-                    detected = true;
-                }
-                // Heuristic: posisi window di luar layar utama
-                if (window.screenX < -50 || window.screenX > screen.availWidth - 100) {
-                    detected = true;
-                }
-                
-                if (detected && !multiMonitorDetected) {
-                    multiMonitorDetected = true;
-                    lastMultiMonitorCheck = now;
-                    violationCount++;
-                    logViolation('multi_monitor', 'Multi-monitor/layar tambahan terdeteksi');
-                    
-                    if (violationCount >= maxViolations) {
-                        alert('Multi-monitor terdeteksi berulang! Jawaban akan disubmit!');
-                        submitFinal();
-                    } else {
-                        const remaining = maxViolations - violationCount;
-                        alert('Peringatan: Multi-monitor / layar tambahan terdeteksi!\nPelanggaran: ' + violationCount + '/' + maxViolations + '\nSisa: ' + remaining + 'x');
-                    }
-                }
-            }, 10000);
         }
         
         // === IntersectionObserver: Deteksi jika area soal tertutup overlay ===
@@ -1897,8 +1856,8 @@ function initExamFeatures() {
                 if (examFinished || isSubmittingExam) return;
                 
                 entries.forEach(entry => {
-                    // Jika soal tertutup lebih dari 40% (intersectionRatio < 0.6)
-                    if (entry.intersectionRatio < 0.6) {
+                    // Jika soal tertutup lebih dari 80% (intersectionRatio < 0.2) - direlaksasi dari 40%
+                    if (entry.intersectionRatio < 0.2) {
                         const now = Date.now();
                         if (now - lastOverlayTime < OVERLAY_COOLDOWN) return;
                         lastOverlayTime = now;
@@ -1915,89 +1874,9 @@ function initExamFeatures() {
                         }
                     }
                 });
-            }, { threshold: [0.6] });
+            }, { threshold: [0.2] });
             
             overlayObserver.observe(target);
-        }
-        
-        // === Random Presence Challenge untuk Mobile ===
-        let presenceTimer = null;
-        
-        function startPresenceChallenge() {
-            if (presenceTimer) clearTimeout(presenceTimer);
-            schedulePresenceChallenge();
-        }
-        
-        function schedulePresenceChallenge() {
-            if (examFinished) return;
-            // Interval acak antara 4-10 menit
-            const delay = (240 + Math.random() * 360) * 1000;
-            presenceTimer = setTimeout(showPresenceChallenge, delay);
-        }
-        
-        function showPresenceChallenge() {
-            if (examFinished || isSubmittingExam) return;
-            
-            const challengeId = 'presence_' + Date.now();
-            
-            const el = document.createElement('div');
-            el.id = challengeId;
-            el.style.cssText = 'position:fixed;bottom:20px;right:20px;background:white;border:2px solid #f59e0b;border-radius:12px;padding:15px 20px;box-shadow:0 8px 30px rgba(0,0,0,0.2);z-index:9999;max-width:280px;animation:fadeIn 0.3s ease-out;font-size:0.9rem;';
-            el.innerHTML = `
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                    <i class="bi bi-shield-exclamation" style="font-size:1.3rem;color:#f59e0b;"></i>
-                    <strong>Konfirmasi Kehadiran</strong>
-                </div>
-                <p style="color:#666;margin-bottom:10px;font-size:0.85rem;">Tap tombol di bawah untuk konfirmasi Anda masih mengerjakan ujian.</p>
-                <button onclick="confirmPresence('${challengeId}')" 
-                        style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;padding:8px 0;border-radius:8px;font-weight:600;cursor:pointer;width:100%;font-size:0.85rem;">
-                    <i class="bi bi-check-lg me-1"></i>Saya di sini
-                </button>
-                <div style="margin-top:6px;text-align:right;">
-                    <small id="countdown_${challengeId}" style="color:#999;font-size:0.75rem;">15 detik</small>
-                </div>
-            `;
-            document.body.appendChild(el);
-            
-            // Countdown
-            let countdown = 15;
-            const cdInterval = setInterval(() => {
-                countdown--;
-                const cdEl = document.getElementById('countdown_' + challengeId);
-                if (cdEl) {
-                    cdEl.textContent = countdown + ' detik';
-                    cdEl.style.color = countdown <= 5 ? '#dc2626' : '#999';
-                }
-                if (countdown <= 0) {
-                    clearInterval(cdInterval);
-                    const ov = document.getElementById(challengeId);
-                    if (ov && !examFinished) {
-                        ov.remove();
-                        violationCount++;
-                        logViolation('presence_timeout', 'Tidak merespon konfirmasi kehadiran');
-                        if (violationCount >= maxViolations) {
-                            alert('Terlalu banyak pelanggaran! Jawaban akan disubmit otomatis!');
-                            submitFinal();
-                        } else {
-                            const remaining = maxViolations - violationCount;
-                            alert('Peringatan: Tidak merespon konfirmasi kehadiran!\nPelanggaran: ' + violationCount + '/' + maxViolations + '\nSisa: ' + remaining + 'x');
-                        }
-                    }
-                    schedulePresenceChallenge();
-                }
-            }, 1000);
-            
-            // Hapus otomatis jika tidak direspon dalam 20 detik
-            setTimeout(() => {
-                const ov = document.getElementById(challengeId);
-                if (ov) ov.remove();
-            }, 20000);
-        }
-        
-        function confirmPresence(challengeId) {
-            const el = document.getElementById(challengeId);
-            if (el) el.remove();
-            schedulePresenceChallenge();
         }
         
         // Tambah animasi fadeIn jika belum ada
@@ -2293,20 +2172,8 @@ function initExamFeatures() {
             const answeredCount = Object.keys(answers).length;
             
             if (answeredCount < totalSoal) {
-                // Log violation for incomplete submit
-                fetch(API_URL, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        action: 'log_violation',
-                        id_ujian: ID_UJIAN,
-                        nis: nis,
-                        jenis_violation: 'incomplete_submit',
-                        detail: 'Siswa mencoba submit dengan jawaban belum lengkap: ' + answeredCount + '/' + totalSoal,
-                        csrf_token: csrfToken,
-                        expected_token: csrfToken
-                    })
-                }).catch(e => console.error('Failed to log violation:', e));
+                // Hanya warning client-side — tidak dicatat ke server agar tidak kena penalti
+                console.warn('Submit ditunda: jawaban belum lengkap (' + answeredCount + '/' + totalSoal + ')');
                 
                 // Show custom modal instead of alert (prevents fullscreen exit)
                 showIncompleteModal(answeredCount, totalSoal);
@@ -2828,50 +2695,15 @@ function initExamFeatures() {
         
         init();
         
-        // === Multi-Monitor Detection ===
-        let multiMonitorDetected = false;
-        
-        function checkMultiMonitor() {
-            if (window.screen && window.screen.isExtended) {
-                multiMonitorDetected = true;
-                console.warn('Multi-monitor terdeteksi: screen.isExtended =', window.screen.isExtended);
-            }
-            // Alternatif: cek apakah window melebihi lebar layar
-            if (window.outerWidth > screen.width) {
-                console.warn('Window width (' + window.outerWidth + ') > screen width (' + screen.width + ') — kemungkinan multi-monitor');
-                multiMonitorDetected = true;
-            }
-            // Cek posisi window di monitor kedua (screenX negatif atau > screen.width)
-            if (window.screenX < 0 || window.screenX > screen.availWidth) {
-                console.warn('Window posisi (' + window.screenX + ') di luar layar utama — kemungkinan multi-monitor');
-                multiMonitorDetected = true;
-            }
-            return multiMonitorDetected;
-        }
-        
         // Custom modal for exam rules warning
         let examRulesCallback = null;
         
         function showExamRulesWarning(callback) {
             examRulesCallback = callback;
             
-            // Cek multi-monitor sebelum tampilkan modal
-            checkMultiMonitor();
-            
             const modal = document.createElement('div');
             modal.id = 'examRulesModal';
             modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:99999;';
-            
-            const supportsMultiScreen = window.screen && window.screen.isExtended;
-            const multiScreenWarning = supportsMultiScreen ? `
-                <div style="background:#fff3cd;border:1px solid #ffc107;padding:12px;border-radius:8px;margin-bottom:15px;text-align:left;">
-                    <p style="color:#856404;font-size:0.85rem;margin:0;">
-                        <i class="bi bi-exclamation-triangle-fill"></i> 
-                        <strong>Multi-Monitor Terdeteksi:</strong> Pastikan hanya SATU layar yang aktif.
-                        Layar tambahan akan dicatat sebagai pelanggaran.
-                    </p>
-                </div>
-            ` : '';
             
             modal.innerHTML = `
                 <div style="background:white;padding:30px;border-radius:16px;max-width:520px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
@@ -2883,13 +2715,11 @@ function initExamFeatures() {
                         <strong>Dilarang Keras:</strong><br>
                         ❌ Membuka tab/jendela browser lain<br>
                         ❌ Berganti aplikasi (Alt+Tab / App Switcher)<br>
-                        ❌ Menggunakan multi-monitor / 2 layar<br>
                         ❌ Aplikasi overlay (chat bubble, floating window)<br>
-                        ❌ Copy-paste, klik kanan, screenshot<br><br>
+                        ❌ Copy-paste, klik kanan<br><br>
                         <strong>Sanksi:</strong> Setiap pelanggaran <strong>pemotongan 10 poin</strong>.
                         Jika batas terlampaui, jawaban <strong>otomatis disubmit</strong>.
                     </p>
-                    ${multiScreenWarning}
                     <button id="examRulesBtn"
                             style="background:linear-gradient(135deg,#dc2626,#ef4444);color:white;border:none;padding:12px 30px;border-radius:30px;font-weight:600;cursor:pointer;">
                         <i class="bi bi-check-lg me-2"></i>Saya Mengerti, Akan Patuh
